@@ -71,6 +71,14 @@ const elm = Elm.Main.init({
   flags: { supportsWebRtc }
 });
 
+function toServer(json) {
+  state.ws.send(JSON.stringify(json));
+}
+
+function toElm(json) {
+  elm.ports.incoming.send(json);
+}
+
 elm.ports.out.subscribe(msg => {
   console.warn('got from elm', msg);
 
@@ -98,6 +106,33 @@ elm.ports.out.subscribe(msg => {
       state.ws = connectToRoom(msg.room);
       break;
 
+    case 'createSdpOffer':
+      const pcConfig = {
+        iceServers: [
+          { urls: ['stun:stun.services.mozilla.com'] },
+          // { urls: ['stun:stun.l.google.com:19302'] },
+        ]
+      };
+      const pc = new RTCPeerConnection(pcConfig)
+      pc.onnegotiationneeded = async () => {
+        try {
+          console.debug("pc.onnegotiationneeded");
+          await pc.setLocalDescription(await pc.createOffer());
+          const data = {
+            type: 'sdp-offer', for: msg.for,
+            sdp: pc.localDescription.sdp
+          };
+          console.warn('toElm', data);
+          toElm(data);
+          toServer(data);
+        } catch (err) {
+          console.error('onnegotiationneeded failure', err);
+        }
+      };
+      for (const track of msg.localStream.getTracks()) {
+        pc.addTrack(track, msg.localStream);
+      }
+      break;
 
     default:
       console.warn('Unsupported elm msg:', msg)
@@ -116,20 +151,19 @@ function connectToRoom(roomId) {
   const ws = new WebSocket('ws://localhost:8443/join/123123')
   ws.onopen = evt => {
     console.log('socket was opened');
-    // ws.send(JSON.stringify({ type: 'greet', msg: 'hello' }));
-    const data = {
+    state.ws = ws;
+    toServer({
       type: 'initial',
       supportsWebRtc,
       browser: adapter.browserDetails.browser,
       browserVersion: adapter.browserDetails.version
-    }
-    ws.send(JSON.stringify(data));
+    });
   };
 
   ws.onmessage = async evt => {
     const msg = getMsg(evt.data);
     console.debug('got msg', msg);
-    elm.ports.incoming.send(msg);
+    toElm(msg);
   };
 
   ws.onclose = evt => {

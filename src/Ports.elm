@@ -1,5 +1,6 @@
 port module Ports exposing
     ( attachMediaStream
+    , createSdpOfferTo
     , disconnectFromServer
     , getUserMedia
     , joinRoom
@@ -32,6 +33,14 @@ attachMediaStream id stream =
 disconnectFromServer : Cmd msg
 disconnectFromServer =
     send "disconnect" []
+
+
+createSdpOfferTo : Int -> Encode.Value -> Cmd msg
+createSdpOfferTo id localStream =
+    send "createSdpOffer"
+        [ ( "for", Encode.int id )
+        , ( "localStream", localStream )
+        ]
 
 
 send : String -> List ( String, Encode.Value ) -> Cmd msg

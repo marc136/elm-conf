@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Const
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
@@ -44,7 +45,7 @@ type alias ActiveData =
     { room : RoomId
     , localStream : LocalStream
     , userId : UserId
-    , users : List User
+    , users : Dict UserId User
     }
 
 
@@ -98,6 +99,7 @@ type Msg
     | ReleaseUserMedia
     | GotLocalStream Stream
     | JoinResponse Ports.In.JoinSuccess
+    | ActiveMsg Ports.In.Active
     | Leave
     | InvalidPortMsg Json.Error
 
@@ -137,7 +139,10 @@ update msg model =
                 { room = room
                 , localStream = LocalStream localStream
                 , userId = userId
-                , users = List.map initUser users
+                , users =
+                    List.map initUser users
+                        |> List.map (\u -> ( u.id, u ))
+                        |> Dict.fromList
                 }
             , Cmd.none
             )
@@ -147,6 +152,10 @@ update msg model =
 
         ( Leave, Active _ ) ->
             ( Ended, Ports.disconnectFromServer )
+
+        ( ActiveMsg sub, Active data ) ->
+            activeUpdate sub data
+                |> Tuple.mapFirst Active
 
         ( InvalidPortMsg err, _ ) ->
             let
@@ -171,6 +180,43 @@ releaseUserMedia local =
 
         _ ->
             Cmd.none
+
+
+activeUpdate : Ports.In.Active -> ActiveData -> ( ActiveData, Cmd msg )
+activeUpdate msg model =
+    case msg of
+        Ports.In.UserMsg u ->
+            if u.id == model.userId then
+                -- for now the server will not give us new data about oneself
+                ( model, Cmd.none )
+
+            else if Dict.member u.id model.users then
+                -- for now we do not expect new data about other users
+                ( model, Cmd.none )
+
+            else
+                -- another user has joined, create a PeerConnection to her
+                ( { model | users = Dict.insert u.id (initUser u) model.users }
+                , case model.localStream of
+                    LocalStream stream ->
+                        Ports.createSdpOfferTo u.id stream
+
+                    _ ->
+                        Cmd.none
+                )
+
+        Ports.In.LocalSdpOffer { for, sdp } ->
+            case Dict.get for model.users of
+                Just user ->
+                    let
+                        _ =
+                            Debug.log "LocalSdpOffer is ignored in elm" sdp
+                    in
+                    ( model, Cmd.none )
+
+                Nothing ->
+                    -- TODO release pc
+                    ( model, Cmd.none )
 
 
 
@@ -309,21 +355,20 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
         JoiningRoom _ ->
-            Ports.In.incoming subscribeTo
+            Ports.In.incoming (subscribe JoinResponse Ports.In.joinSuccess)
+
+        Active _ ->
+            Ports.In.incoming (subscribe ActiveMsg Ports.In.active)
 
         _ ->
             Sub.none
 
 
-subscribeTo : Json.Value -> Msg
-subscribeTo value =
-    case Json.decodeValue Ports.In.joinSuccess value of
+subscribe : (a -> Msg) -> Json.Decoder a -> Json.Value -> Msg
+subscribe toMsg decoder value =
+    case Json.decodeValue decoder value of
         Ok data ->
-            let
-                _ =
-                    Debug.log "got joinSuccess data" data
-            in
-            JoinResponse data
+            toMsg data
 
         Err err ->
             InvalidPortMsg err
