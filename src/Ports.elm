@@ -1,5 +1,6 @@
 port module Ports exposing
     ( attachMediaStream
+    , disconnectFromServer
     , getUserMedia
     , joinRoom
     , releaseUserMedia
@@ -26,6 +27,11 @@ joinRoom roomId =
 attachMediaStream : String -> Value -> Cmd msg
 attachMediaStream id stream =
     send "attachStreamToId" [ ( "stream", stream ), ( "id", Encode.string id ) ]
+
+
+disconnectFromServer : Cmd msg
+disconnectFromServer =
+    send "disconnect" []
 
 
 send : String -> List ( String, Encode.Value ) -> Cmd msg

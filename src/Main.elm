@@ -5,10 +5,12 @@ import Const
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Html.Keyed
 import Json.Decode as Json
 import Json.Encode
 import Ports
 import Ports.In
+
 
 
 ---- MODEL ----
@@ -19,6 +21,7 @@ type Model
     | InitialMediaSelection InitialMediaSelectionData
     | JoiningRoom JoiningRoomData
     | Active ActiveData
+    | Ended
 
 
 type alias SelectRoomData =
@@ -38,7 +41,26 @@ type alias JoiningRoomData =
 
 
 type alias ActiveData =
-    { room : RoomId, localStream : LocalStream }
+    { room : RoomId
+    , localStream : LocalStream
+    , userId : UserId
+    , users : List User
+    }
+
+
+type alias UserId =
+    Int
+
+
+type alias User =
+    { id : UserId
+    }
+
+
+initUser : Ports.In.User -> User
+initUser { id, supportsWebRtc, browser, browserVersion } =
+    { id = id
+    }
 
 
 type LocalStream
@@ -64,6 +86,8 @@ type Msg
     | ReleaseUserMedia
     | GotLocalStream Stream
     | JoinResponse Ports.In.JoinSuccess
+    | Leave
+    | InvalidPortMsg Json.Error
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -96,8 +120,28 @@ update msg model =
         ( ReleaseUserMedia, InitialMediaSelection { localStream } ) ->
             ( model, releaseUserMedia localStream )
 
+        ( JoinResponse { userId, users }, JoiningRoom { room, localStream } ) ->
+            ( Active
+                { room = room
+                , localStream = LocalStream localStream
+                , userId = userId
+                , users = List.map initUser users
+                }
+            , Cmd.none
+            )
+
         ( ReleaseUserMedia, Active { localStream } ) ->
             ( model, releaseUserMedia localStream )
+
+        ( Leave, Active _ ) ->
+            ( Ended, Ports.disconnectFromServer )
+
+        ( InvalidPortMsg err, _ ) ->
+            let
+                _ =
+                    Debug.log "json decoder error" err
+            in
+            ( model, Cmd.none )
 
         other ->
             let
@@ -131,10 +175,24 @@ view model =
             viewInitialMediaSelection data
 
         JoiningRoom data ->
-            viewJoiningRoom data
+            keyedNode "div" <|
+                viewJoiningRoom data
 
         Active data ->
-            viewActive data
+            keyedNode "div" <|
+                viewActive data
+
+        Ended ->
+            div [] [ h1 [] [ text "You left the conference" ] ]
+
+
+keyedNode : String -> KeyedHtmlList msg -> Html msg
+keyedNode tagName ( attr, children ) =
+    Html.Keyed.node tagName attr children
+
+
+type alias KeyedHtmlList msg =
+    ( List (Html.Attribute msg), List ( String, Html msg ) )
 
 
 viewSelectRoom : SelectRoomData -> Html Msg
@@ -167,22 +225,48 @@ hasStream local =
             False
 
 
-viewJoiningRoom : JoiningRoomData -> Html Msg
+viewJoiningRoom : JoiningRoomData -> KeyedHtmlList Msg
 viewJoiningRoom model =
-    div []
-        [ h1 [] [ text "Joining" ]
+    ( []
+    , [ ( "h1", h1 [] [ text "Joining" ] )
+      , ( Const.ownVideoId
         , video
             [ autoplay True
             , property "muted" (Json.Encode.bool True)
             , id Const.ownVideoId
             ]
             []
+        )
+      ]
+    )
+
+
+viewActive : ActiveData -> KeyedHtmlList Msg
+viewActive model =
+    ( []
+    , [ ( "header", header )
+      , ( Const.ownVideoId
+        , video
+            [ autoplay True
+            , property "muted" (Json.Encode.bool True)
+            , id Const.ownVideoId
+            ]
+            []
+        )
+      ]
+    )
+
+
+header : Html Msg
+header =
+    div []
+        [ button [ onClick Leave ] [ text "leave" ]
         ]
 
 
-viewActive : ActiveData -> Html Msg
-viewActive model =
-    Debug.todo "viewActive"
+button : List (Html.Attribute msg) -> List (Html msg) -> Html msg
+button attr children =
+    Html.button (type_ "button" :: attr) children
 
 
 type alias Stream =
@@ -205,7 +289,10 @@ detailDecoder decoder =
     Json.field "detail" decoder
 
 
+
 ---- SUBSCRIPTIONS ----
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
@@ -216,14 +303,19 @@ subscriptions model =
             Sub.none
 
 
+subscribeTo : Json.Value -> Msg
 subscribeTo value =
     case Json.decodeValue Ports.In.joinSuccess value of
         Ok data ->
-            let _ = Debug.log "got joinSuccess data" data in
+            let
+                _ =
+                    Debug.log "got joinSuccess data" data
+            in
             JoinResponse data
+
         Err err ->
-            let _ = Debug.log "json decoder error" err in
-            Debug.todo "json decoder error"
+            InvalidPortMsg err
+
 
 
 ---- PROGRAM ----
@@ -237,5 +329,3 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
-
-
