@@ -4,10 +4,21 @@ const port = 8443;
 
 function ts() { return new Date().toISOString() }
 
-const room = {
-    users: new Map(),
-    id: '123123'
+class Room {
+    constructor(id) {
+        this.users = new Map();
+        this.id = id;
+        this.digest = {} // contains import room data
+    }
+
+    userInfo(userId) {
+        const user = this.users.get(userId);
+        if (user) return user.public;
+    }
 }
+
+const room = new Room('123123')
+
 
 let userCount = 0;
 
@@ -27,17 +38,27 @@ const app = uWS./*SSL*/App({
         console.log({ roomId });
         if (room.id != roomId) {
             console.warn(ts(), 'Rejected user for room', roomId);
+            ws.send(JSON.stringify({ type: 'join-rejected', message: 'Invalid room' }));
+            ws.end(4000, 'rejected');
         } else {
             const userId = userCount;
             userCount++;
-            ws.userId = userId;
-            ws.roomId = roomId;
-            room.users.set(userId, ws);
 
+            // store new user
+            ws.roomId = roomId;
+            ws.roomChannel = `room/${roomId}`;
+
+            ws.public = {
+                userId,
+            };
+            const users = Array.from(room.users.values()).map(u => u.public);
+
+
+            // send initialization message to new user
             console.log(ts(), `Added user to room ${roomId}`, ws);
-            const users = [];
             const data = { type: 'join-success', userId, roomId, users };
             ws.send(JSON.stringify(data), false);
+            ws.subscribe(ws.roomChannel);
         }
     },
     message: (ws, message, isBinary) => {
@@ -47,7 +68,16 @@ const app = uWS./*SSL*/App({
             let str = Buffer.from(message).toString('utf8');
             try {
                 const json = JSON.parse(str);
-                console.log('got message', json);
+                console.log(ts(), `User ${ws.public.userId} sent`, json);
+
+                switch (json.type) {
+                    case 'initial':
+                        const user = ws.public;
+                        room.users.set(user.userId, ws);
+
+                        app.publish(ws.roomChannel, JSON.stringify({ type: 'user', user }));
+                        break;
+                }
 
             } catch (error) {
                 console.warn(`Could not JSON.parse message '${str}'`);
@@ -61,7 +91,13 @@ const app = uWS./*SSL*/App({
         console.log(ts(), 'WebSocket backpressure: ' + ws.getBufferedAmount());
     },
     close: (ws, code, message) => {
-        console.log(ts(), 'WebSocket closed');
+        console.log(ts(), 'WebSocket closed', ws, { code, message: Buffer.from(message).toString('utf8') });
+
+        if (ws.public) {
+            room.users.delete(ws.public.userId);
+            const leave = { type: 'leave', user: ws.public.userId };
+            app.publish(ws.roomChannel, JSON.stringify(leave));
+        }
     }
 }).any('/*', (res, req) => {
     res.end('Nothing to see here!');
