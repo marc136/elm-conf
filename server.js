@@ -50,6 +50,9 @@ const app = uWS./*SSL*/App({
 
             ws.public = {
                 userId,
+                supportsWebRtc: false,
+                browser: 'unknown',
+                browserVersion: 0
             };
             const users = Array.from(room.users.values()).map(u => u.public);
 
@@ -73,6 +76,9 @@ const app = uWS./*SSL*/App({
                 switch (json.type) {
                     case 'initial':
                         const user = ws.public;
+                        user.supportsWebRtc = json.supportsWebRtc || false;
+                        user.browser = json.browser || '';
+                        user.browserVersion = json.browserVersion || 0;
                         room.users.set(user.userId, ws);
 
                         app.publish(ws.roomChannel, JSON.stringify({ type: 'user', user }));

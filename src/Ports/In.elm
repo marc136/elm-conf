@@ -16,6 +16,9 @@ type alias JoinSuccess =
 
 type alias User =
     { id : Int
+    , supportsWebRtc : Bool
+    , browser : String
+    , browserVersion : Int
     }
 
 
@@ -35,5 +38,8 @@ joinSuccess =
 
 user : Decoder User
 user =
-    Json.map User
+    Json.map4 User
         (Json.field "userId" Json.int)
+        (Json.field "supportsWebRtc" Json.bool)
+        (Json.field "browser" Json.string)
+        (Json.field "browserVersion" Json.int)

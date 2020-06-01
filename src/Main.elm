@@ -54,13 +54,25 @@ type alias UserId =
 
 type alias User =
     { id : UserId
+    , webRtcSupport : WebRtcSupport
     }
 
 
 initUser : Ports.In.User -> User
 initUser { id, supportsWebRtc, browser, browserVersion } =
     { id = id
+    , webRtcSupport =
+        if supportsWebRtc then
+            SupportsWebRtc browser browserVersion
+
+        else
+            NoWebRtcSupport
     }
+
+
+type WebRtcSupport
+    = NoWebRtcSupport
+    | SupportsWebRtc String Int
 
 
 type LocalStream

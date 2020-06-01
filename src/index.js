@@ -4,6 +4,12 @@ import * as serviceWorker from './serviceWorker';
 
 
 const defaultConstraints = { audio: true, video: true, facingMode: 'user' };
+const webRtcSupport = {
+  peerConnection: !!window.RTCPeerConnection,
+  getUserMedia: typeof navigator.mediaDevices.getUserMedia === 'function'
+};
+const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedia;
+
 
 const state = {
   localStream: undefined,
@@ -61,7 +67,8 @@ customElements.define('camera-select', CameraSelect);
 
 
 const elm = Elm.Main.init({
-  node: document.getElementById('root')
+  node: document.getElementById('root'),
+  flags: { supportsWebRtc }
 });
 
 elm.ports.out.subscribe(msg => {
@@ -110,16 +117,19 @@ function connectToRoom(roomId) {
   ws.onopen = evt => {
     console.log('socket was opened');
     // ws.send(JSON.stringify({ type: 'greet', msg: 'hello' }));
+    const data = {
+      type: 'initial',
+      supportsWebRtc,
+      browser: adapter.browserDetails.browser,
+      browserVersion: adapter.browserDetails.version
+    }
+    ws.send(JSON.stringify(data));
   };
 
   ws.onmessage = async evt => {
     const msg = getMsg(evt.data);
-    console.log('got msg', msg);
-    switch (msg.type) {
-      case 'join-success':
-        elm.ports.incoming.send(msg);
-        break;
-    }
+    console.debug('got msg', msg);
+    elm.ports.incoming.send(msg);
   };
 
   ws.onclose = evt => {
