@@ -78,10 +78,19 @@ function toServer(json) {
 }
 
 function toElm(json) {
+  console.debug('toElm', json);
   elm.ports.incoming.send(json);
 }
 
-elm.ports.out.subscribe(msg => {
+// See https://developer.mozilla.org/de/docs/Web/API/RTCConfiguration
+const pcConfig = {
+  iceServers: [
+    { urls: ['stun:stun.services.mozilla.com'] },
+    // { urls: ['stun:stun.l.google.com:19302'] },
+  ]
+};
+
+elm.ports.out.subscribe(async msg => {
   console.warn('got from elm', msg);
 
   switch (msg.type) {
@@ -109,40 +118,31 @@ elm.ports.out.subscribe(msg => {
       break;
 
     case 'createSdpOffer':
-      const pcConfig = {
-        iceServers: [
-          { urls: ['stun:stun.services.mozilla.com'] },
-          // { urls: ['stun:stun.l.google.com:19302'] },
-        ]
-      };
-      const pc = new RTCPeerConnection(pcConfig)
-      const peerId = msg.for
-      pc.onnegotiationneeded = async () => {
-        try {
-          console.debug("pc.onnegotiationneeded");
-          await pc.setLocalDescription(await pc.createOffer());
-          const data = {
-            type: 'offer', for: peerId,
-            sdp: pc.localDescription.sdp
-          };
-          console.warn('toElm', data);
-          toElm(data);
-          toServer(data);
-        } catch (err) {
-          console.error('onnegotiationneeded failure', err);
-        }
-      };
+      initiateSdpOffer(msg.for, msg.localStream);
+      break;
 
-      pc.onicecandidate = async ({ candidate }) => {
-        console.debug(`Got ICE candidate for peer ${peerId}`);
-        const data = { type: 'ice-candidate', for: peerId, candidate };
-        toElm(data);
-        toServer(data);
-      }
+    case 'createSdpAnswer':
+      receiveSdpOffer(msg.offer, msg.from, msg.localStream, msg.ws);
+      break;
 
-      for (const track of msg.localStream.getTracks()) {
-        pc.addTrack(track, msg.localStream);
-      }
+    case 'setRemoteSdpAnswer':
+      msg.pc.setRemoteDescription(msg.answer)
+        .then(() => {
+          console.debug('Successfully set remote SDP answer', msg);
+        })
+        .catch(ex => {
+          console.error('could not set remote SDP answer', ex, msg);
+        })
+      break;
+
+    case 'setRemoteIceCandidate':
+      msg.pc.addIceCandidate(msg.candidate)
+        .then(() => {
+          console.debug('Successfully set remote ICE candidate', msg);
+        })
+        .catch(ex => {
+          console.error('could not set remote ICE candidate', ex, msg);
+        })
       break;
 
     default:
@@ -155,6 +155,76 @@ function stopStream(stream) {
     stream.getTracks().forEach(track => {
       track.stop();
     });
+  }
+}
+
+/**
+ * @param {number} peerId
+ * @param {MediaStream} localStream
+ */
+async function initiateSdpOffer(peerId, localStream) {
+  const pc = new RTCPeerConnection(pcConfig);
+  addDevEventHandlers(peerId, pc);
+  toElm({ type: 'peerConnection', for: peerId, pc });
+  pc.onicecandidate = propagateLocalIceCandidates(peerId);
+
+  pc.onnegotiationneeded = async () => {
+    try {
+      console.debug("pc.onnegotiationneeded");
+      await pc.setLocalDescription(await pc.createOffer());
+      const data = { type: 'offer', for: peerId, sdp: pc.localDescription.sdp };
+      toServer(data);
+      data.pc = pc;
+      toElm(data);
+    } catch (err) {
+      console.error('onnegotiationneeded failure', err);
+    }
+  };
+
+  addLocalStream(pc, localStream);
+}
+
+/**
+ * @param {RTCSessionDescription} sdp
+ * @param {number} from
+ * @param {MediaStream} localStream
+ * @param {WebSocket} ws
+ */
+async function receiveSdpOffer(sdp, from, localStream, ws) {
+  const pc = new RTCPeerConnection(pcConfig);
+  toElm({ type: 'peerConnection', for: from, pc });
+  addDevEventHandlers(from, pc);
+  pc.onicecandidate = propagateLocalIceCandidates(from, ws);
+
+  await pc.setRemoteDescription(sdp);
+  addLocalStream(pc, localStream);
+
+  const answer = await pc.createAnswer()
+  toElm({ type: 'answer', for: from, sdp: answer.sdp });
+  await pc.setLocalDescription(answer);
+  toServer({ type: 'answer', for: from, sdp: answer.sdp });
+}
+
+/**
+ * @param {number} peerId
+ * @param {WebSocket} ws
+ */
+function propagateLocalIceCandidates(peerId, ws) {
+  return ({ candidate }) => {
+    console.debug(`Found local ICE candidate for peer ${peerId}`);
+    const data = { type: 'ice-candidate', for: peerId, candidate };
+    // toElm(data);
+    toServer(data);
+  };
+}
+
+/**
+ * @param {RTCPeerConnection} pc
+ * @param {MediaStream} stream
+ */
+function addLocalStream(pc, stream) {
+  for (const track of stream.getTracks()) {
+    pc.addTrack(track, stream);
   }
 }
 
@@ -199,3 +269,35 @@ function getMsg(data) {
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: https://bit.ly/CRA-PWA
 serviceWorker.unregister();
+
+
+/**
+ *
+ * @param {RTCPeerConnection} pc
+ */
+function addDevEventHandlers(userId, pc) {
+  pc.oniceconnectionstatechange = () => {
+    console.log(`User ${userId} oniceconnectionstatechange`, pc.iceConnectionState);
+  };
+
+  pc.onsignalingtatechange = () => {
+    console.log(`User ${userId} onsignalingtatechange`, pc.signalingState);
+  };
+
+  pc.onconnectionstatechange = () => {
+    console.log(`User ${userId} onconnectionstatechange`, pc.connectionState);
+  };
+
+  pc.ontrack = ({ track, streams }) => {
+    console.log(`ontrack for user ${userId}`, track);
+    // once media for a remote track arrives, show it in the remote video element
+    track.onunmute = () => {
+      console.log(`track.onunmute for user ${userId}`, track);
+
+      // don't set srcObject again if it is already set.
+      // if (remoteView.srcObject) return;
+      // remoteView.srcObject = streams[0];
+
+    };
+  };
+}

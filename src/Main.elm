@@ -61,7 +61,12 @@ type alias User =
     }
 
 
-type alias PeerConnection =
+type PeerConnection
+    = PeerConnection Json.Value
+    | QueuedIceCandidates (List IceCandidate)
+
+
+type alias IceCandidate =
     Json.Value
 
 
@@ -74,7 +79,7 @@ initUser { id, supportsWebRtc, browser, browserVersion } =
 
         else
             NoWebRtcSupport
-    , pc = Json.Encode.null
+    , pc = QueuedIceCandidates []
     }
 
 
@@ -211,7 +216,7 @@ activeUpdate msg model =
                 ( { model | users = Dict.insert u.id (initUser u) model.users }
                 , case model.localStream of
                     LocalStream stream ->
-                        Ports.createSdpOfferTo u.id stream
+                        Ports.createSdpOfferFor u.id stream
 
                     _ ->
                         Cmd.none
@@ -220,14 +225,28 @@ activeUpdate msg model =
         Ports.In.NewPeerConnection { for, pc } ->
             case Dict.get for model.users of
                 Nothing ->
-                    -- TODO release pc
+                    -- TODO release pc because user has left the session
                     ( model, Cmd.none )
 
                 Just user ->
                     ( { model
-                        | users = Dict.insert for { user | pc = pc } model.users
+                        | users =
+                            Dict.insert for
+                                { user | pc = PeerConnection pc }
+                                model.users
                       }
-                    , Cmd.none
+                    , case user.pc of
+                        QueuedIceCandidates [] ->
+                            Cmd.none
+
+                        QueuedIceCandidates candidates ->
+                            List.map
+                                (\c -> Ports.setRemoteIceCandidate for c pc)
+                                candidates
+                                |> Cmd.batch
+
+                        _ ->
+                            Cmd.none
                     )
 
         Ports.In.LocalSdpOffer { for, sdp } ->
@@ -240,7 +259,70 @@ activeUpdate msg model =
                     ( model, Cmd.none )
 
                 Nothing ->
-                    -- TODO release pc
+                    ( model, Cmd.none )
+
+        Ports.In.RemoteSdpOffer { from, sdp } ->
+            case Dict.get from model.users of
+                Just _ ->
+                    ( model
+                    , case model.localStream of
+                        LocalStream stream ->
+                            Ports.createSdpAnswerFor sdp from stream model.socket
+
+                        _ ->
+                            Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        Ports.In.LocalSdpAnswer { for, sdp } ->
+            case Dict.get for model.users of
+                Just user ->
+                    let
+                        _ =
+                            Debug.log "LocalSdpAnswer is ignored in elm" sdp
+                    in
+                    ( model, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        Ports.In.RemoteSdpAnswer { from, sdp } ->
+            case Dict.get from model.users of
+                Just user ->
+                    ( model
+                    , case user.pc of
+                        PeerConnection pc ->
+                            Ports.setRemoteSdpAnswer sdp from pc
+
+                        _ ->
+                            Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        Ports.In.RemoteIceCandidate { from, candidate } ->
+            case Dict.get from model.users of
+                Just user ->
+                    case user.pc of
+                        QueuedIceCandidates list ->
+                            ( { model
+                                | users =
+                                    Dict.insert from
+                                        { user | pc = QueuedIceCandidates (candidate :: list) }
+                                        model.users
+                              }
+                            , Cmd.none
+                            )
+
+                        PeerConnection pc ->
+                            ( model
+                            , Ports.setRemoteIceCandidate from candidate pc
+                            )
+
+                Nothing ->
                     ( model, Cmd.none )
 
 

@@ -1,10 +1,13 @@
 port module Ports exposing
     ( attachMediaStream
-    , createSdpOfferTo
+    , createSdpAnswerFor
+    , createSdpOfferFor
     , disconnectFromServer
     , getUserMedia
     , joinRoom
     , releaseUserMedia
+    , setRemoteIceCandidate
+    , setRemoteSdpAnswer
     )
 
 import Json.Encode as Encode exposing (Value)
@@ -35,11 +38,49 @@ disconnectFromServer =
     send "disconnect" []
 
 
-createSdpOfferTo : Int -> Encode.Value -> Cmd msg
-createSdpOfferTo id localStream =
+createSdpOfferFor : Int -> Encode.Value -> Cmd msg
+createSdpOfferFor id localStream =
     send "createSdpOffer"
         [ ( "for", Encode.int id )
         , ( "localStream", localStream )
+        ]
+
+
+createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Cmd msg
+createSdpAnswerFor sdp id localStream webSocket =
+    send "createSdpAnswer"
+        [ ( "offer"
+          , Encode.object
+                [ ( "type", Encode.string "offer" )
+                , ( "sdp", Encode.string sdp )
+                ]
+          )
+        , ( "from", Encode.int id )
+        , ( "localStream", localStream )
+        , ( "ws", webSocket )
+        ]
+
+
+setRemoteSdpAnswer : String -> Int -> Encode.Value -> Cmd msg
+setRemoteSdpAnswer sdp id pc =
+    send "setRemoteSdpAnswer"
+        [ ( "answer"
+          , Encode.object
+                [ ( "type", Encode.string "answer" )
+                , ( "sdp", Encode.string sdp )
+                ]
+          )
+        , ( "from", Encode.int id )
+        , ( "pc", pc )
+        ]
+
+
+setRemoteIceCandidate : Int -> Encode.Value -> Encode.Value -> Cmd msg
+setRemoteIceCandidate id candidate pc =
+    send "setRemoteIceCandidate"
+        [ ( "candidate", candidate )
+        , ( "for", Encode.int id )
+        , ( "pc", pc )
         ]
 
 

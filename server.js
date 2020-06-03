@@ -86,8 +86,8 @@ const app = uWS./*SSL*/App({
                     case 'answer':
                     case 'ice-candidate':
                         let dest = room.users.get(msg.for);
-                        delete msg.for
                         if (dest) {
+                            delete msg.for
                             msg.from = ws.public.userId;
                             sendJson(dest, msg);
                         }
@@ -129,9 +129,9 @@ const app = uWS./*SSL*/App({
 });
 
 /**
- * 
- * @param {WebSocket} ws 
- * @param {object} json 
+ *
+ * @param {WebSocket} ws
+ * @param {object} json
  */
 function sendJson(ws, json) {
     return ws.send(JSON.stringify(json));

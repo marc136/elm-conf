@@ -11,23 +11,32 @@ import Json.Decode as Json exposing (Decoder)
 
 
 type alias JoinSuccess =
-    { userId : Int
+    { userId : UserId
     , users : List User
     , socket : Json.Value
     }
 
 
 type alias User =
-    { id : Int
+    { id : UserId
     , supportsWebRtc : Bool
     , browser : String
     , browserVersion : Int
     }
 
 
+type alias UserId =
+    Int
+
+
 type Active
     = UserMsg User
-    | LocalSdpOffer { for : Int, sdp : String }
+    | LocalSdpOffer { for : UserId, sdp : String }
+    | RemoteSdpOffer { from : UserId, sdp : String }
+    | LocalSdpAnswer { for : UserId, sdp : String }
+    | RemoteSdpAnswer { from : UserId, sdp : String }
+    | RemoteIceCandidate { from : UserId, candidate : Json.Value }
+    | NewPeerConnection { for : UserId, pc : Json.Value }
 
 
 port incoming : (Json.Value -> msg) -> Sub msg
@@ -67,11 +76,41 @@ activeDecoders type_ =
             Json.map UserMsg
                 (Json.field "user" user)
 
-        "offer" ->
+        "peerConnection" ->
             Json.map2
-                (\for description -> LocalSdpOffer { for = for, sdp = description })
+                (\id pc -> NewPeerConnection { for = id, pc = pc })
                 (Json.field "for" Json.int)
-                (Json.field "sdp" Json.string)
+                (Json.field "pc" Json.value)
+
+        "offer" ->
+            Json.oneOf
+                [ Json.map2
+                    (\id description -> LocalSdpOffer { for = id, sdp = description })
+                    (Json.field "for" Json.int)
+                    (Json.field "sdp" Json.string)
+                , Json.map2
+                    (\id description -> RemoteSdpOffer { from = id, sdp = description })
+                    (Json.field "from" Json.int)
+                    (Json.field "sdp" Json.string)
+                ]
+
+        "answer" ->
+            Json.oneOf
+                [ Json.map2
+                    (\id description -> LocalSdpAnswer { for = id, sdp = description })
+                    (Json.field "for" Json.int)
+                    (Json.field "sdp" Json.string)
+                , Json.map2
+                    (\id description -> RemoteSdpAnswer { from = id, sdp = description })
+                    (Json.field "from" Json.int)
+                    (Json.field "sdp" Json.string)
+                ]
+
+        "ice-candidate" ->
+            Json.map2
+                (\id candidate -> RemoteIceCandidate { from = id, candidate = candidate })
+                (Json.field "from" Json.int)
+                (Json.field "candidate" Json.value)
 
         _ ->
             "Cannot decode message with type '"
