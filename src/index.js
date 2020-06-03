@@ -115,11 +115,12 @@ elm.ports.out.subscribe(msg => {
       };
       const pc = new RTCPeerConnection(pcConfig)
       pc.onnegotiationneeded = async () => {
+        const peerId = msg.for
         try {
           console.debug("pc.onnegotiationneeded");
           await pc.setLocalDescription(await pc.createOffer());
           const data = {
-            type: 'sdp-offer', for: msg.for,
+            type: 'sdp-offer', for: peerId,
             sdp: pc.localDescription.sdp
           };
           console.warn('toElm', data);
@@ -129,6 +130,14 @@ elm.ports.out.subscribe(msg => {
           console.error('onnegotiationneeded failure', err);
         }
       };
+
+      pc.onicecandidate = async ({ candidate }) => {
+        console.debug(`Got ICE candidate for peer ${peerId}`);
+        const data = { type: 'ice-candidate', for: peerId, candidate };
+        toElm(data);
+        toServer(data);
+      }
+
       for (const track of msg.localStream.getTracks()) {
         pc.addTrack(track, msg.localStream);
       }
