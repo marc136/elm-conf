@@ -61,14 +61,16 @@ class CameraSelect extends HTMLElement {
   //   return ['lang', 'year', 'month'];
   // }
 }
-
-
 customElements.define('camera-select', CameraSelect);
 
 
 const elm = Elm.Main.init({
   node: document.getElementById('root'),
-  flags: { supportsWebRtc }
+  flags: {
+    supportsWebRtc,
+    browser: adapter.browserDetails.browser,
+    browserVersion: adapter.browserDetails.version
+  }
 });
 
 function toServer(json) {
