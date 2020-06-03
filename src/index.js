@@ -116,8 +116,8 @@ elm.ports.out.subscribe(msg => {
         ]
       };
       const pc = new RTCPeerConnection(pcConfig)
+      const peerId = msg.for
       pc.onnegotiationneeded = async () => {
-        const peerId = msg.for
         try {
           console.debug("pc.onnegotiationneeded");
           await pc.setLocalDescription(await pc.createOffer());

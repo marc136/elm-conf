@@ -65,20 +65,18 @@ const app = uWS./*SSL*/App({
         }
     },
     message: (ws, message, isBinary) => {
-        console.log('ws', ws);
-
         if (!isBinary) {
             let str = Buffer.from(message).toString('utf8');
             try {
-                const json = JSON.parse(str);
-                console.log(ts(), `User ${ws.public.userId} sent`, json);
+                const msg = JSON.parse(str);
+                console.log(ts(), `User ${ws.public.userId} sent`, msg);
 
-                switch (json.type) {
+                switch (msg.type) {
                     case 'initial':
                         const user = ws.public;
-                        user.supportsWebRtc = json.supportsWebRtc || false;
-                        user.browser = json.browser || '';
-                        user.browserVersion = json.browserVersion || 0;
+                        user.supportsWebRtc = msg.supportsWebRtc || false;
+                        user.browser = msg.browser || '';
+                        user.browserVersion = msg.browserVersion || 0;
                         room.users.set(user.userId, ws);
 
                         app.publish(ws.roomChannel, JSON.stringify({ type: 'user', user }));
@@ -87,7 +85,7 @@ const app = uWS./*SSL*/App({
                     case 'offer':
                     case 'answer':
                     case 'ice-candidate':
-                        let dest = room.users.get(json.for);
+                        let dest = room.users.get(msg.for);
                         if (dest) {
                             msg.from = ws.public.userId;
                             sendJson(dest, msg);
@@ -95,11 +93,12 @@ const app = uWS./*SSL*/App({
                         break;
 
                     default:
-                        console.log(ts(), `Cannot handle message from user ${ws.public.userId}`, json);
+                        console.log(ts(), `Cannot handle message from user ${ws.public.userId}`, msg);
                 }
 
             } catch (error) {
-                console.warn(`Could not JSON.parse message '${str}'`);
+                console.warn(ts(), 'error', error);
+                console.warn(ts(), `Could not JSON.parse message '${str}'`);
             }
         } else {
             /* Ok is false if backpressure was built up, wait for drain */
