@@ -120,7 +120,7 @@ elm.ports.out.subscribe(msg => {
           console.debug("pc.onnegotiationneeded");
           await pc.setLocalDescription(await pc.createOffer());
           const data = {
-            type: 'sdp-offer', for: peerId,
+            type: 'offer', for: peerId,
             sdp: pc.localDescription.sdp
           };
           console.warn('toElm', data);

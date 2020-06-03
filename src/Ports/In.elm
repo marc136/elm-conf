@@ -65,7 +65,7 @@ activeDecoders type_ =
             Json.map UserMsg
                 (Json.field "user" user)
 
-        "sdp-offer" ->
+        "offer" ->
             Json.map2
                 (\for description -> LocalSdpOffer { for = for, sdp = description })
                 (Json.field "for" Json.int)
