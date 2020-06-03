@@ -57,7 +57,12 @@ type alias UserId =
 type alias User =
     { id : UserId
     , webRtcSupport : WebRtcSupport
+    , pc : PeerConnection
     }
+
+
+type alias PeerConnection =
+    Json.Value
 
 
 initUser : Ports.In.User -> User
@@ -69,6 +74,7 @@ initUser { id, supportsWebRtc, browser, browserVersion } =
 
         else
             NoWebRtcSupport
+    , pc = Json.Encode.null
     }
 
 
@@ -210,6 +216,19 @@ activeUpdate msg model =
                     _ ->
                         Cmd.none
                 )
+
+        Ports.In.NewPeerConnection { for, pc } ->
+            case Dict.get for model.users of
+                Nothing ->
+                    -- TODO release pc
+                    ( model, Cmd.none )
+
+                Just user ->
+                    ( { model
+                        | users = Dict.insert for { user | pc = pc } model.users
+                      }
+                    , Cmd.none
+                    )
 
         Ports.In.LocalSdpOffer { for, sdp } ->
             case Dict.get for model.users of
