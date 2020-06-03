@@ -86,6 +86,7 @@ const app = uWS./*SSL*/App({
                     case 'answer':
                     case 'ice-candidate':
                         let dest = room.users.get(msg.for);
+                        delete msg.for
                         if (dest) {
                             msg.from = ws.public.userId;
                             sendJson(dest, msg);
