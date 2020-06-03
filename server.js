@@ -83,6 +83,19 @@ const app = uWS./*SSL*/App({
 
                         app.publish(ws.roomChannel, JSON.stringify({ type: 'user', user }));
                         break;
+
+                    case 'offer':
+                    case 'answer':
+                    case 'ice-candidate':
+                        let dest = room.users.get(json.for);
+                        if (dest) {
+                            msg.from = ws.public.userId;
+                            sendJson(dest, msg);
+                        }
+                        break;
+
+                    default:
+                        console.log(ts(), `Cannot handle message from user ${ws.public.userId}`, json);
                 }
 
             } catch (error) {
@@ -114,3 +127,12 @@ const app = uWS./*SSL*/App({
         console.log(ts(), 'Failed to listen to port ' + port);
     }
 });
+
+/**
+ * 
+ * @param {WebSocket} ws 
+ * @param {object} json 
+ */
+function sendJson(ws, json) {
+    return ws.send(JSON.stringify(json));
+}
