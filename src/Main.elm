@@ -46,6 +46,7 @@ type alias ActiveData =
     , localStream : LocalStream
     , userId : UserId
     , users : Dict UserId User
+    , socket : WebSocket
     }
 
 
@@ -80,6 +81,10 @@ type LocalStream
     = NotRequested
     | LocalStream Stream
     | Failed
+
+
+type alias WebSocket =
+    Json.Value
 
 
 init : ( Model, Cmd Msg )
@@ -134,7 +139,7 @@ update msg model =
         ( ReleaseUserMedia, InitialMediaSelection { localStream } ) ->
             ( model, releaseUserMedia localStream )
 
-        ( JoinResponse { userId, users }, JoiningRoom { room, localStream } ) ->
+        ( JoinResponse { userId, users, socket }, JoiningRoom { room, localStream } ) ->
             ( Active
                 { room = room
                 , localStream = LocalStream localStream
@@ -143,6 +148,7 @@ update msg model =
                     List.map initUser users
                         |> List.map (\u -> ( u.id, u ))
                         |> Dict.fromList
+                , socket = socket
                 }
             , Cmd.none
             )

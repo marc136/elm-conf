@@ -13,6 +13,7 @@ import Json.Decode as Json exposing (Decoder)
 type alias JoinSuccess =
     { userId : Int
     , users : List User
+    , socket : Json.Value
     }
 
 
@@ -38,9 +39,10 @@ port incoming : (Json.Value -> msg) -> Sub msg
 
 joinSuccess : Decoder JoinSuccess
 joinSuccess =
-    Json.map2 JoinSuccess
+    Json.map3 JoinSuccess
         (Json.field "userId" Json.int)
         (Json.field "users" <| Json.list user)
+        (Json.field "socket" Json.value)
 
 
 user : Decoder User

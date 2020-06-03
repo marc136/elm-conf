@@ -174,6 +174,7 @@ function connectToRoom(roomId) {
   ws.onmessage = async evt => {
     const msg = getMsg(evt.data);
     console.debug('got msg', msg);
+    msg.socket = ws;
     toElm(msg);
   };
 
