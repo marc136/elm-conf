@@ -1,5 +1,6 @@
 port module Ports exposing
     ( attachMediaStream
+    , closeRemotePeerConnection
     , createSdpAnswerFor
     , createSdpOfferFor
     , disconnectFromServer
@@ -44,6 +45,11 @@ createSdpOfferFor id localStream =
         [ ( "for", Encode.int id )
         , ( "localStream", localStream )
         ]
+
+
+closeRemotePeerConnection : Encode.Value -> Cmd msg
+closeRemotePeerConnection pc =
+    send "closeRemotePeerConnection" [ ( "pc", pc ) ]
 
 
 createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Cmd msg

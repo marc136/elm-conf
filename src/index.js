@@ -157,6 +157,10 @@ elm.ports.out.subscribe(async msg => {
   console.warn('got from elm', msg);
 
   switch (msg.type) {
+    case 'disconnect':
+      state.ws.close(1000, "User left conference");
+      break;
+
     case 'getUserMedia':
       console.error('todo: implement getUserMedia');
       break;
@@ -182,6 +186,10 @@ elm.ports.out.subscribe(async msg => {
 
     case 'createSdpOffer':
       initiateSdpOffer(msg.for, msg.localStream);
+      break;
+
+    case 'closeRemotePeerConnection':
+      closePeerConnection(msg.pc);
       break;
 
     case 'createSdpAnswer':
@@ -318,7 +326,6 @@ function connectToRoom(roomId) {
   return ws;
 }
 
-
 function getMsg(data) {
   try {
     const json = JSON.parse(data)
@@ -326,6 +333,16 @@ function getMsg(data) {
   } catch (error) {
     return data
   }
+}
+
+/**
+ * @param {RTCPeerConnection} pc 
+ */
+function closePeerConnection(pc) {
+  pc.oniceconnectionstatechange = null;
+  pc.onsignalingtatechange = null;
+  pc.onconnectionstatechange = null;
+  pc.close()
 }
 
 // If you want your app to work offline and load faster, you can change

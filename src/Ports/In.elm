@@ -31,6 +31,7 @@ type alias UserId =
 
 type Active
     = UserMsg User
+    | UserLeft UserId
     | LocalSdpOffer { for : UserId, sdp : String }
     | RemoteSdpOffer { from : UserId, sdp : String }
     | LocalSdpAnswer { for : UserId, sdp : String }
@@ -75,6 +76,10 @@ activeDecoders type_ =
         "user" ->
             Json.map UserMsg
                 (Json.field "user" user)
+
+        "leave" ->
+            Json.map UserLeft
+                (Json.field "user" Json.int)
 
         "peerConnection" ->
             Json.map2

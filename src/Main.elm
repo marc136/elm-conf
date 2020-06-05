@@ -234,6 +234,21 @@ activeUpdate msg model =
                         Cmd.none
                 )
 
+        Ports.In.UserLeft userId ->
+            case Dict.get userId model.users of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just user ->
+                    ( { model | users = Dict.remove userId model.users }
+                    , case user.pc of
+                        PeerConnection pc ->
+                            Ports.closeRemotePeerConnection pc
+
+                        _ ->
+                            Cmd.none
+                    )
+
         Ports.In.NewPeerConnection { for, pc } ->
             case Dict.get for model.users of
                 Nothing ->
