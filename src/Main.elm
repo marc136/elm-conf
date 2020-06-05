@@ -58,6 +58,7 @@ type alias User =
     { id : UserId
     , webRtcSupport : WebRtcSupport
     , pc : PeerConnection
+    , media : { audio : MediaTrack, video : MediaTrack }
     }
 
 
@@ -70,6 +71,11 @@ type alias IceCandidate =
     Json.Value
 
 
+type MediaTrack
+    = NoTrack
+    | MediaTrack Json.Value
+
+
 initUser : Ports.In.User -> User
 initUser { id, supportsWebRtc, browser, browserVersion } =
     { id = id
@@ -80,6 +86,7 @@ initUser { id, supportsWebRtc, browser, browserVersion } =
         else
             NoWebRtcSupport
     , pc = QueuedIceCandidates []
+    , media = { audio = NoTrack, video = NoTrack }
     }
 
 
@@ -167,8 +174,13 @@ update msg model =
         ( ReleaseUserMedia, Active { localStream } ) ->
             ( model, releaseUserMedia localStream )
 
-        ( Leave, Active _ ) ->
-            ( Ended, Ports.disconnectFromServer )
+        ( Leave, Active { localStream } ) ->
+            ( Ended
+            , [ Ports.disconnectFromServer
+              , releaseUserMedia localStream
+              ]
+                |> Cmd.batch
+            )
 
         ( ActiveMsg sub, Active data ) ->
             activeUpdate sub data
@@ -419,7 +431,41 @@ viewActive model =
             []
         )
       ]
+        ++ List.map keyedOtherUser (Dict.toList model.users)
     )
+
+
+keyedOtherUser : ( UserId, User ) -> ( String, Html Msg )
+keyedOtherUser ( userId, user ) =
+    ( String.fromInt userId
+    , viewOtherUser user
+    )
+
+
+viewOtherUser : User -> Html Msg
+viewOtherUser user =
+    case user.pc of
+        QueuedIceCandidates _ ->
+            Html.node "div" [] [ text <| "user " ++ String.fromInt user.id ]
+
+        PeerConnection pc ->
+            Html.node "webrtc-media"
+                [ id <| "user-" ++ String.fromInt user.id
+                , Html.Attributes.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
+                , Html.Attributes.attribute "browserAttr" <| userBrowser user.webRtcSupport
+                , Html.Attributes.property "pc" pc
+                ]
+                []
+
+
+userBrowser : WebRtcSupport -> String
+userBrowser support =
+    case support of
+        NoWebRtcSupport ->
+            "unknown"
+
+        SupportsWebRtc browser version ->
+            browser
 
 
 header : Html Msg

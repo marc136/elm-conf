@@ -19,7 +19,6 @@ const state = {
 class CameraSelect extends HTMLElement {
   // follows https://davidea.st/articles/simple-camera-component
 
-  // things required by Custom Elements
   constructor() {
     super();
   }
@@ -62,6 +61,70 @@ class CameraSelect extends HTMLElement {
   // }
 }
 customElements.define('camera-select', CameraSelect);
+
+class WebRtcMedia extends HTMLElement {
+  constructor() {
+    super();
+  }
+
+  connectedCallback() {
+    console.log('WebRtcMedia connected')
+    // attach a shadow root so nobody can mess with your styles
+    // const shadow = this.attachShadow({ mode: "open" });
+
+    const video = document.createElement('video');
+    // will be blocked on some browsers if our stream contains audio and video and it is not muted
+    video.autoplay = true;
+    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
+    video.setAttribute("playsinline", true);
+    this.videoElement = video;
+
+    const audio = document.createElement('audio');
+    audio.autoplay = true;
+    this.audioElement = audio;
+
+    video.controls = true; // TODO remove
+    audio.controls = true; // TODO remove
+
+    this.appendChild(this.videoElement);
+    this.appendChild(this.audioElement);
+    this._addPeerConnectionEventListeners();
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    console.error(`attributeChanged "${name}"`, { oldValue, newValue });
+  }
+
+  static get observedAttributes() {
+    return ['has-media', 'has-video', 'has-audio'];
+  }
+
+  _addPeerConnectionEventListeners() {
+    this.pc.ontrack = ({ track, streams }) => {
+      console.log(`ontrack for ${this.id}`, track, this);
+      this._playTrack(track);
+    };
+  }
+
+  _playTrack(track) {
+    const el = this[track.kind + 'Element'];
+    if (!el) {
+      console.error(`could not play ${track.kind} track because media element was not found`, track);
+    }
+    this.setAttribute('has-' + track.kind, true);
+
+    console.warn('_playTrack', this.id, track);
+    track.onunmute = () => {
+      console.log(`track.onunmute for ${this.id}`, track);
+      el.srcObject = new MediaStream([track]);
+    };
+    if (adapter.browserDetails.browser === 'safari') {
+      console.log(`${track.kind} ${userId} srcObject was set directly because safari does not trigger track.onunmute`);
+      el.srcObject = new MediaStream([track]);
+    }
+  }
+}
+customElements.define('webrtc-media', WebRtcMedia);
 
 
 const elm = Elm.Main.init({
@@ -276,28 +339,26 @@ serviceWorker.unregister();
  * @param {RTCPeerConnection} pc
  */
 function addDevEventHandlers(userId, pc) {
+  const node = document.querySelector(`webrtc-media#user-${userId}`);
+  console.warn('node', node);
+
   pc.oniceconnectionstatechange = () => {
-    console.log(`User ${userId} oniceconnectionstatechange`, pc.iceConnectionState);
+    console.log(`dev user-${userId} oniceconnectionstatechange`, pc.iceConnectionState);
   };
 
   pc.onsignalingtatechange = () => {
-    console.log(`User ${userId} onsignalingtatechange`, pc.signalingState);
+    console.log(`dev user-${userId} onsignalingtatechange`, pc.signalingState);
   };
 
   pc.onconnectionstatechange = () => {
-    console.log(`User ${userId} onconnectionstatechange`, pc.connectionState);
+    console.log(`dev user-${userId} onconnectionstatechange`, pc.connectionState);
   };
 
   pc.ontrack = ({ track, streams }) => {
-    console.log(`ontrack for user ${userId}`, track);
-    // once media for a remote track arrives, show it in the remote video element
-    track.onunmute = () => {
-      console.log(`track.onunmute for user ${userId}`, track);
-
-      // don't set srcObject again if it is already set.
-      // if (remoteView.srcObject) return;
-      // remoteView.srcObject = streams[0];
-
-    };
+    // Buggy behavior in Chrome 83: 
+    // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
+    // This can e.g. be fixed by only creating a new peer connection when the page is visible
+    // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API
+    console.error(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
   };
 }
