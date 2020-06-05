@@ -7,6 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed
+import Icons
 import Json.Decode as Json
 import Json.Encode
 import Ports
@@ -26,7 +27,11 @@ type Model
 
 
 type alias SelectRoomData =
-    { id : RoomId }
+    { id : RoomId
+    , supportsWebRtc : Bool
+    , browser : String
+    , browserVersion : Int
+    }
 
 
 type alias RoomId =
@@ -105,9 +110,14 @@ type alias WebSocket =
     Json.Value
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( SelectRoom { id = "123123" }
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( SelectRoom
+        { id = "123123"
+        , supportsWebRtc = flags.supportsWebRtc
+        , browser = flags.browser
+        , browserVersion = flags.browserVersion
+        }
     , Cmd.none
     )
 
@@ -388,17 +398,30 @@ type alias KeyedHtmlList msg =
 
 
 viewSelectRoom : SelectRoomData -> Html Msg
-viewSelectRoom model =
-    div []
-        [ h1 [] [ text "Your Elm App is working!" ]
-        , p [] [ text "TODO: show if WebRTC is supported" ]
-        , button [ onClick Join ] [ text "Join" ]
+viewSelectRoom { supportsWebRtc, browser, browserVersion } =
+    let
+        ( icon, result ) =
+            if supportsWebRtc then
+                ( Icons.checkCircle, "Your browser supports WebRTC" )
+
+            else
+                ( Icons.alertCircle, "Your browser does not support WebRTC" )
+
+        caption =
+            result ++ " (" ++ browser ++ " " ++ String.fromInt browserVersion ++ ")"
+    in
+    div [ class "modal" ]
+        [ h1 [] [ text "Conference" ]
+        , p [ class "with-icon" ] [ icon, text caption ]
+        , button
+            [ disabled (not supportsWebRtc), onClick Join, autofocus True ]
+            [ text "Select Camera" ]
         ]
 
 
 viewInitialMediaSelection : InitialMediaSelectionData -> Html Msg
 viewInitialMediaSelection { localStream } =
-    div []
+    div [ class "modal" ]
         [ h1 [] [ text "Please select your camera" ]
         , node "camera-select" [ onGotStream ] []
         , button [ onClick ReleaseUserMedia ] [ text "release media" ]
@@ -419,7 +442,7 @@ hasStream local =
 
 viewJoiningRoom : JoiningRoomData -> KeyedHtmlList Msg
 viewJoiningRoom model =
-    ( []
+    ( [ class "modal" ]
     , [ ( "h1", h1 [] [ text "Joining" ] )
       , ( Const.ownVideoId
         , video
@@ -435,7 +458,7 @@ viewJoiningRoom model =
 
 viewActive : ActiveData -> KeyedHtmlList Msg
 viewActive model =
-    ( []
+    ( [ class <| "conf conf-" ++ String.fromInt (Dict.size model.users + 1) ]
     , [ ( "header", header )
       , ( Const.ownVideoId
         , video
@@ -485,7 +508,7 @@ userBrowser support =
 
 header : Html Msg
 header =
-    div []
+    div [ class "header" ]
         [ button [ onClick Leave ] [ text "leave" ]
         ]
 
@@ -496,7 +519,6 @@ button attr children =
 
 
 type alias Stream =
-    -- TODO change to opaque value
     Json.Value
 
 
@@ -546,11 +568,18 @@ subscribe toMsg decoder value =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = subscriptions
         }
+
+
+type alias Flags =
+    { supportsWebRtc : Bool
+    , browser : String
+    , browserVersion : Int
+    }

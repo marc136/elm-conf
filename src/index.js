@@ -3,7 +3,17 @@ import { Elm } from './Main.elm';
 import * as serviceWorker from './serviceWorker';
 
 
-const defaultConstraints = { audio: true, video: true, facingMode: 'user' };
+function defaultConstraints() {
+  return {
+    audio: {},
+    video: {
+      width: { min: 160, ideal: 320 },
+      height: { min: 120, ideal: 240 },
+    },
+    facingMode: 'user',
+  }
+}
+
 const webRtcSupport = {
   peerConnection: !!window.RTCPeerConnection,
   getUserMedia: typeof navigator.mediaDevices.getUserMedia === 'function'
@@ -12,7 +22,6 @@ const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedi
 
 
 const state = {
-  localStream: undefined,
   ws: undefined
 };
 
@@ -26,7 +35,11 @@ class CameraSelect extends HTMLElement {
   connectedCallback() {
     console.log('CameraSelect connected')
     // attach a shadow root so nobody can mess with your styles
+    // requires additional effort for emitting the custom events
     // const shadow = this.attachShadow({ mode: "open" });
+
+    this.textElement = document.createTextNode("Init");
+    this.appendChild(this.textElement);
 
     const video = document.createElement("video");
     // usually don't want to hear ourselves
@@ -35,20 +48,47 @@ class CameraSelect extends HTMLElement {
     video.autoplay = true;
     // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
     video.setAttribute("playsinline", true);
+    video.classList.add('hidden');
+    this.appendChild(video);
     this.videoElement = video;
 
-    this.appendChild(this.videoElement);
+    requestAnimationFrame(() => {
+      const constraints = defaultConstraints();
+      this._getUserMedia(constraints);
+    })
+  }
 
-    navigator.mediaDevices.getUserMedia(defaultConstraints)
+  _getUserMedia(constraints) {
+    this.textElement.textContent = 'Requesting access to camera and microphone.';
+    return navigator.mediaDevices.getUserMedia(constraints)
       .then(stream => {
-        state.localStream = stream;
+        console.debug('getUserMedia success', stream);
         this.videoElement.srcObject = stream;
-
-        // this.videoElement.onloadedmetadata = (e) => {
-        //   this.videoElement.play();
-        // };
+        this.videoElement.classList.remove('hidden');
+        this.textElement.textContent = '';
         this.dispatchEvent(new CustomEvent('got-stream', { detail: { stream }, bubbles: true }))
+      })
+      .catch(reason => {
+        this.videoElement.classList.add('hidden');
+        console.error('getUserMedia failed', reason);
+        this.textElement.textContent = "Error: " + (reason.message || reason.name);
       });
+  }
+
+  _retryGetUserMediaButton() {
+    const btn = document.createElement('button');
+    btn.className = 'circle';
+    btn.style.cssText = 'position: absolute; right: 5px; top: 5px;';
+    btn.type = 'button';
+    btn.innerHTML = '<svg class="feather" style="color:white;">' +
+      // '<use xlink:href="./feather-sprite.svg#circle"/>' +
+      '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>' +
+      '</svg>';
+    this.appendChild(btn);
+    btn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      this._getUserMedia(defaultConstraints());
+    });
   }
 
   attributeChangedCallback() {
@@ -336,7 +376,7 @@ function getMsg(data) {
 }
 
 /**
- * @param {RTCPeerConnection} pc 
+ * @param {RTCPeerConnection} pc
  */
 function closePeerConnection(pc) {
   pc.oniceconnectionstatechange = null;
@@ -372,7 +412,7 @@ function addDevEventHandlers(userId, pc) {
   };
 
   pc.ontrack = ({ track, streams }) => {
-    // Buggy behavior in Chrome 83: 
+    // Buggy behavior in Chrome 83:
     // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
     // This can e.g. be fixed by only creating a new peer connection when the page is visible
     // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API

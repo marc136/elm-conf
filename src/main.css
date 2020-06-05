@@ -9,7 +9,201 @@
   height: inherit;
 }
 
+:root {
+  --primary: hsl(210, 33%, 20%);
+  --primary-light: hsl(210, 33%, 40%);
+  --highlight: white;
+  --background: hsl(210, 33%, 70%);
+  --video-ratio: 1.3333333;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body,
+[data-elm-hot="true"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hidden {
+  display: none;
+}
+
+.feather {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.modal {
+  --modal-width: 96vw;
+  width: var(--modal-width);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.modal video {
+  width: 96vw;
+}
+
+.modal video {
+  width: auto;
+  min-width: var(--modal-width);
+  height: calc(var(--modal-width) / var(--video-ratio));
+  object-fit: cover;
+}
+
+@media (min-width:32rem) {
+  .modal {
+    --modal-width: 30rem;
+  }
+}
+
+p.with-icon > svg:first-child {
+  margin-right: .2em;
+  height: 1em;
+}
+
+p.with-icon {
+  display: flex;
+  align-items: center;
+}
+
+button {
+  border: 1px solid var(--primary-light);
+  background-color: var(--primary);
+  color: var(--highlight);
+  padding: 15px 20px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+button:focus {
+  outline-color: orange;
+}
+
+button:disabled,
+button[disabled]{
+  border: 1px solid #999;
+  background-color: #ccc;
+  color: #666;
+}
+
+button.circle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 4rem;
+  width: 4lh;
+  height: 4rem;
+  height: 4lh;
+  border-radius: 50%;
+}
+
+button.circle:focus {
+  outline: none;
+  box-shadow: 0 0 0 2pt orange;
+}
+
+.modal camera-select {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+/* conference view */
+
+.conf {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  --box-height: 40vh;
+  --box-width: calc(var(--box-height) * var(--video-ratio));
+  gap: calc(var(--box-height) / 20); /* only in Firefox */
+}
+
+.conf>.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: center;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.conf>.header::before {
+  content: 'aspect-ratio < 4/3';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: fuchsia;
+  padding: 5px 10px;
+}
+
+.conf webrtc-media {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.conf webrtc-media,
+.conf video#own-video {
+  width: var(--box-width);
+  height: var(--box-height);
+}
+
+.conf webrtc-media > video {
+  max-height: 100%;
+}
+
+.conf-1 {
+  --box-width: 90vw;
+  --box-height: calc(var(--box-width) / var(--video-ratio));
+}
+
+/* aspect ratio should be the same as the --video-ratio */
+@media (min-aspect-ratio: 4/3) {
+  .conf {
+    flex-direction: row;
+    --box-width: 40vw;
+    --box-height: calc(var(--box-width) / var(--video-ratio));
+  }
+
+  .conf>.header::before {
+    content: 'aspect-ratio >= 4/3';
+  }
+
+  .conf-1 {
+    --box-width: 90vw;
+    --box-height: calc(var(--box-width) / var(--video-ratio));
+  }
 }
