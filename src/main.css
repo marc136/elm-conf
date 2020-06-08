@@ -183,6 +183,7 @@ button.circle:focus {
 
 .conf webrtc-media > video {
   max-height: 100%;
+  flex: 1 1 auto;
 }
 
 .conf-1 {

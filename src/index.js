@@ -3,6 +3,10 @@ import { Elm } from './Main.elm';
 import * as serviceWorker from './serviceWorker';
 
 
+/**
+ * Returns media constraints
+ * https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+ */
 function defaultConstraints() {
   return {
     audio: {},
@@ -22,7 +26,7 @@ const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedi
 
 
 const state = {
-  ws: undefined
+  ws: undefined // TODO remove this
 };
 
 class CameraSelect extends HTMLElement {
@@ -41,38 +45,98 @@ class CameraSelect extends HTMLElement {
     this.textElement = document.createTextNode("Init");
     this.appendChild(this.textElement);
 
-    const video = document.createElement("video");
-    // usually don't want to hear ourselves
-    video.muted = true;
-    // will be blocked on some browsers if our stream contains audio and video and it is not muted
-    video.autoplay = true;
-    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
-    video.setAttribute("playsinline", true);
-    video.classList.add('hidden');
-    this.appendChild(video);
-    this.videoElement = video;
+    this.videoElement = addVideoElement(this)
+    this.videoElement.classList.add('hidden');
+
+    this.audioInput = document.createElement('p');
+    this.audioInput.textContent = "Audio";
+    this.audioInputSelect = this.audioInput.appendChild(document.createElement('select'));
+    this.appendChild(this.audioInput);
+    this.videoInput = document.createElement('p');
+    this.videoInput.textContent = "Video";
+    this.videoInputSelect = this.videoInput.appendChild(document.createElement('select'));
+    this.appendChild(this.videoInput);
+
+    this.selectors = [this.audioInputSelect, this.videoInputSelect];
+    this.selectors.forEach(el => {
+      el.classList.add('hidden');
+      this.appendChild(el);
+      el.onchange = this.getUserMedia.bind(this);
+    });
 
     requestAnimationFrame(() => {
-      const constraints = defaultConstraints();
-      this._getUserMedia(constraints);
-    })
+      this.getUserMedia()
+    });
   }
 
-  _getUserMedia(constraints) {
+  async getUserMedia() {
     this.textElement.textContent = 'Requesting access to camera and microphone.';
-    return navigator.mediaDevices.getUserMedia(constraints)
-      .then(stream => {
-        console.debug('getUserMedia success', stream);
-        this.videoElement.srcObject = stream;
-        this.videoElement.classList.remove('hidden');
-        this.textElement.textContent = '';
-        this.dispatchEvent(new CustomEvent('got-stream', { detail: { stream }, bubbles: true }))
-      })
-      .catch(reason => {
-        this.videoElement.classList.add('hidden');
-        console.error('getUserMedia failed', reason);
-        this.textElement.textContent = "Error: " + (reason.message || reason.name);
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+    }
+
+    const constraints = defaultConstraints();
+    if (this.audioInputSelect.value) {
+      constraints.audio.deviceId = { exact: this.audioInputSelect.value };
+    }
+    if (this.videoInputSelect.value) {
+      constraints.video.deviceId = { exact: this.videoInputSelect.value };
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.debug('getUserMedia success', stream);
+      this.videoElement.srcObject = stream;
+      this.videoElement.classList.remove('hidden');
+      this.textElement.textContent = '';
+      this.dispatchEvent(new CustomEvent('got-stream', { detail: { stream }, bubbles: true }));
+      this.stream = stream;
+    }
+    catch (reason) {
+      this.videoElement.classList.add('hidden');
+      console.error('getUserMedia failed', reason);
+      this.textElement.textContent = "Error: " + (reason.message || reason.name);
+    }
+
+    this.enumerateDevices().catch(reason => {
+      console.warn('Could not enumberate media devices', reason);
+    });
+  }
+
+  async enumerateDevices() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    console.debug('media devices', devices);
+    // Handles being called several times to update labels. Preserve values.
+    const values = this.selectors.map(select => select.value);
+    this.selectors.forEach(select => {
+      while (select.firstChild) {
+        select.removeChild(select.firstChild);
+      }
+    });
+
+    for (const device of devices) {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      switch (device.kind) {
+        case 'audioinput':
+          option.text = device.label || `microphone ${this.audioInputSelect.length + 1}`;
+          this.audioInputSelect.appendChild(option);
+          break;
+        case 'videoinput':
+          option.text = device.label || `camera ${this.videoInputSelect.length + 1}`;
+          this.videoInputSelect.appendChild(option);
+          break;
+        default:
+          console.debug('Another media device:', device);
+      }
+
+      this.selectors.forEach((select, index) => {
+        if (Array.prototype.slice.call(select.childNodes).some(n => n.value === values[index])) {
+          select.value = values[index];
+        }
+        select.classList.remove('hidden');
       });
+    }
   }
 
   _retryGetUserMediaButton() {
@@ -102,6 +166,18 @@ class CameraSelect extends HTMLElement {
 }
 customElements.define('camera-select', CameraSelect);
 
+function addVideoElement(container) {
+  const video = document.createElement("video");
+  video.muted = true;
+  // will be blocked on some browsers if our stream contains audio and video and it is not muted
+  video.autoplay = true;
+  // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
+  video.setAttribute("playsinline", true);
+  container.appendChild(video);
+  return video;
+}
+
+
 class WebRtcMedia extends HTMLElement {
   constructor() {
     super();
@@ -112,13 +188,9 @@ class WebRtcMedia extends HTMLElement {
     // attach a shadow root so nobody can mess with your styles
     // const shadow = this.attachShadow({ mode: "open" });
 
-    const video = document.createElement('video');
-    // will be blocked on some browsers if our stream contains audio and video and it is not muted
-    video.autoplay = true;
-    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
-    video.setAttribute("playsinline", true);
+    const video = addVideoElement(this);
     this.videoElement = video;
-
+    video.classList.remove('hidden');
     const audio = document.createElement('audio');
     audio.autoplay = true;
     this.audioElement = audio;
@@ -126,7 +198,6 @@ class WebRtcMedia extends HTMLElement {
     video.controls = true; // TODO remove
     audio.controls = true; // TODO remove
 
-    this.appendChild(this.videoElement);
     this.appendChild(this.audioElement);
     this._addPeerConnectionEventListeners();
   }
@@ -159,7 +230,7 @@ class WebRtcMedia extends HTMLElement {
       el.srcObject = new MediaStream([track]);
     };
     if (adapter.browserDetails.browser === 'safari') {
-      console.log(`${track.kind} ${userId} srcObject was set directly because safari does not trigger track.onunmute`);
+      console.log(`${track.kind} ${this.id} srcObject was set directly because safari does not trigger track.onunmute`);
       el.srcObject = new MediaStream([track]);
     }
   }

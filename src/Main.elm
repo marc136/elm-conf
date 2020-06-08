@@ -422,7 +422,7 @@ viewSelectRoom { supportsWebRtc, browser, browserVersion } =
 viewInitialMediaSelection : InitialMediaSelectionData -> Html Msg
 viewInitialMediaSelection { localStream } =
     div [ class "modal" ]
-        [ h1 [] [ text "Please select your camera" ]
+        [ h1 [] [ text "Camera selection" ]
         , node "camera-select" [ onGotStream ] []
         , button [ onClick ReleaseUserMedia ] [ text "release media" ]
         , button [ onClick Join, disabled <| not <| hasStream localStream ]
