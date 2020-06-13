@@ -20,9 +20,9 @@ function defaultConstraints() {
 
 const webRtcSupport = {
   peerConnection: !!window.RTCPeerConnection,
-  getUserMedia: typeof navigator.mediaDevices.getUserMedia === 'function'
+  getUserMedia: navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'
 };
-const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedia;
+const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedia || false;
 
 
 const state = {
