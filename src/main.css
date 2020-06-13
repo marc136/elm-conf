@@ -192,6 +192,18 @@ button.circle:focus {
   flex: 1 1 auto;
 }
 
+.conf webrtc-media > audio {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  display: none;
+}
+
+.conf webrtc-media:focus > audio,
+.conf webrtc-media:hover > audio {
+  display: block;
+}
+
 .conf-1 {
   --box-width: 90vw;
   --box-height: calc(var(--box-width) / var(--video-ratio));
