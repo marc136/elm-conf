@@ -38,13 +38,13 @@ export default class CameraSelect extends HTMLElement {
     this.videoElement.classList.add('hidden');
     this.appendChild(this.videoElement);
 
-    this.audioInput = document.createElement('p');
+    this.audioInput = document.createElement('label');
     this.audioInput.textContent = "Audio";
-    this.audioInputSelect = this.audioInput.appendChild(document.createElement('select'));
+    this.audioInputSelect = document.createElement('select');
     this.appendChild(this.audioInput);
-    this.videoInput = document.createElement('p');
+    this.videoInput = document.createElement('label');
     this.videoInput.textContent = "Video";
-    this.videoInputSelect = this.videoInput.appendChild(document.createElement('select'));
+    this.videoInputSelect = document.createElement('select');
     this.appendChild(this.videoInput);
 
     this.selectors = [this.audioInputSelect, this.videoInputSelect];
@@ -55,6 +55,8 @@ export default class CameraSelect extends HTMLElement {
     });
 
     requestAnimationFrame(() => {
+      this.audioInput.appendChild(this.audioInputSelect);
+      this.videoInput.appendChild(this.videoInputSelect);
       this.getUserMedia()
     });
   }

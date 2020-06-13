@@ -131,8 +131,14 @@ button.circle:focus {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
   overflow: visible;
 }
+
+.modal camera-select select {
+  margin: 0.5em 0 0.5em 1em;
+}
+
 
 /* conference view */
 
