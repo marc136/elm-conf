@@ -12,6 +12,7 @@ svgFeatherIcon : String -> List (Svg msg) -> Html msg
 svgFeatherIcon className =
     svg
         [ class <| "feather feather-" ++ className
+        , viewBox "0 0 24 24"
         ]
 
 
