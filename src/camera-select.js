@@ -41,15 +41,16 @@ export default class CameraSelect extends HTMLElement {
     this.audioInput = document.createElement('label');
     this.audioInput.textContent = "Audio";
     this.audioInputSelect = document.createElement('select');
+    this.audioInput.classList.add('hidden');
     this.appendChild(this.audioInput);
     this.videoInput = document.createElement('label');
     this.videoInput.textContent = "Video";
     this.videoInputSelect = document.createElement('select');
+    this.videoInput.classList.add('hidden');
     this.appendChild(this.videoInput);
 
     this.selectors = [this.audioInputSelect, this.videoInputSelect];
     this.selectors.forEach(el => {
-      el.classList.add('hidden');
       this.appendChild(el);
       el.onchange = this.getUserMedia.bind(this);
     });
@@ -96,6 +97,8 @@ export default class CameraSelect extends HTMLElement {
   }
 
   async enumerateDevices() {
+    this.audioInput.classList.add('hidden');
+    this.videoInput.classList.add('hidden');
     const devices = await navigator.mediaDevices.enumerateDevices();
     console.debug('media devices', devices);
     // Handles being called several times to update labels. Preserve values.
@@ -126,9 +129,11 @@ export default class CameraSelect extends HTMLElement {
         if (Array.prototype.slice.call(select.childNodes).some(n => n.value === values[index])) {
           select.value = values[index];
         }
-        select.classList.remove('hidden');
       });
     }
+
+    this.audioInput.classList.remove('hidden');
+    this.videoInput.classList.remove('hidden');
   }
 
   _retryGetUserMediaButton() {
