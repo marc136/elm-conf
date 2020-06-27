@@ -1,6 +1,20 @@
 export default class WebRtcMedia extends HTMLElement {
   constructor() {
     super();
+
+    // create the audio and video element here because the remote stream might arrive before the
+    // element is connected to the DOM (e.g. if the page is not in the foreground in Chrome)
+    const video = document.createElement("video");
+    video.muted = true;
+    // will be blocked on some browsers if our stream contains audio and video and it is not muted
+    video.autoplay = true;
+    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
+    video.setAttribute("playsinline", true);
+    this.videoElement = video;
+
+    const audio = document.createElement('audio');
+    audio.autoplay = true;
+    this.audioElement = audio;
   }
 
   connectedCallback() {
@@ -8,24 +22,13 @@ export default class WebRtcMedia extends HTMLElement {
     // attach a shadow root so nobody can mess with your styles
     // const shadow = this.attachShadow({ mode: "open" });
 
-    const video = document.createElement("video");
-    video.muted = true;
-    // will be blocked on some browsers if our stream contains audio and video and it is not muted
-    video.autoplay = true;
-    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
-    video.setAttribute("playsinline", true);
-    this.appendChild(video);
-
-    this.videoElement = video;
-    video.classList.remove('hidden');
-    const audio = document.createElement('audio');
-    audio.autoplay = true;
-    this.audioElement = audio;
-
-    video.controls = true; // TODO remove
-    audio.controls = true; // TODO remove
-
+    this.appendChild(this.videoElement);
+    this.videoElement.classList.remove('hidden');
     this.appendChild(this.audioElement);
+
+    this.videoElement.controls = true; // TODO remove
+    this.audioElement.controls = true; // TODO remove
+
     this._addPeerConnectionEventListeners();
   }
 
