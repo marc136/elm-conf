@@ -247,8 +247,8 @@ serviceWorker.unregister();
  * @param {RTCPeerConnection} pc
  */
 function addDevEventHandlers(userId, pc) {
-  const node = document.querySelector(`webrtc-media#user-${userId}`);
-  console.warn('node', node);
+  // const node = document.querySelector(`webrtc-media#user-${userId}`);
+  // console.warn('webrtc-media user node', node);
 
   pc.oniceconnectionstatechange = () => {
     console.log(`dev user-${userId} oniceconnectionstatechange`, pc.iceConnectionState);
