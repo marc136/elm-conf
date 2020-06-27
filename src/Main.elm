@@ -138,8 +138,24 @@ type Msg
     | GotLocalStream Stream
     | JoinResponse Ports.In.JoinSuccess
     | ActiveMsg Ports.In.Active
+    | ActiveMsgUserEvent UserId UserCustomEvent
     | Leave
     | InvalidPortMsg Json.Error
+
+
+type UserCustomEvent
+    = GotTrack TrackEvent
+
+
+type alias TrackEvent =
+    { kind : MediaKind
+    , track : Json.Value
+    }
+
+
+type MediaKind
+    = Audio
+    | Video
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -200,6 +216,14 @@ update msg model =
         ( ActiveMsg sub, Active data ) ->
             activeUpdate sub data
                 |> Tuple.mapFirst Active
+
+        ( ActiveMsgUserEvent userId event, Active data ) ->
+            Dict.get userId data.users
+                |> Maybe.map (activeCustomEventUpdate event)
+                |> Maybe.map (\user -> Dict.insert user.id user data.users)
+                |> Maybe.map (\users -> { data | users = users })
+                |> Maybe.withDefault data
+                |> (\changed -> ( Active changed, Cmd.none ))
 
         ( InvalidPortMsg err, _ ) ->
             let
@@ -318,6 +342,26 @@ activeUpdate msg model =
 
                 Nothing ->
                     ( model, Cmd.none )
+
+
+activeCustomEventUpdate : UserCustomEvent -> User -> User
+activeCustomEventUpdate msg user =
+    case msg of
+        GotTrack track ->
+            setTrack track user
+
+
+setTrack : TrackEvent -> User -> User
+setTrack { kind, track } ({ media } as user) =
+    { user
+        | media =
+            case kind of
+                Audio ->
+                    { media | audio = MediaTrack track }
+
+                Video ->
+                    { media | video = MediaTrack track }
+    }
 
 
 
@@ -444,6 +488,7 @@ viewOtherUser user =
         , Html.Attributes.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
         , Html.Attributes.attribute "browserAttr" <| userBrowser user.webRtcSupport
         , Html.Attributes.property "pc" user.pc
+        , onCustomEvent user.id "track" GotTrack decodeTrackEvent
         ]
         []
 
@@ -456,6 +501,37 @@ userBrowser support =
 
         SupportsWebRtc browser version ->
             browser
+
+
+onCustomEvent : UserId -> String -> (m -> UserCustomEvent) -> Json.Decoder m -> Html.Attribute Msg
+onCustomEvent userId name event decoder =
+    Html.Events.on name <|
+        Json.map (ActiveMsgUserEvent userId << event)
+            (Json.field "detail" decoder)
+
+
+decodeTrackEvent : Json.Decoder TrackEvent
+decodeTrackEvent =
+    Json.map2 TrackEvent
+        (Json.field "kind" mediaKindDecoder)
+        (Json.field "track" Json.value)
+
+
+mediaKindDecoder : Json.Decoder MediaKind
+mediaKindDecoder =
+    Json.string
+        |> Json.andThen
+            (\str ->
+                case str of
+                    "audio" ->
+                        Json.succeed Audio
+
+                    "video" ->
+                        Json.succeed Video
+
+                    _ ->
+                        Json.fail <| "Unknown media kind '" ++ str ++ "'"
+            )
 
 
 header : Html Msg

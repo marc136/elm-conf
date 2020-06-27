@@ -74,21 +74,32 @@ export default class WebRtcMedia extends HTMLElement {
       console.error(`Could not play ${track.kind} track because media element was not found`, track);
     }
 
+    const setTrack = (log) => {
+      console.log(`${track.kind} ${this.id} ${log}`);
+      el.srcObject = new MediaStream([track]);
+      this.setAttribute('has-' + track.kind, true);
+      this._emitEvent('track', { kind: track.kind, track });
+    }
+
     console.debug('_playTrack', this.id, track);
 
     // it looks better if the video element is only shown if frames are received (-> not muted),
     // but safari does not trigger the `onunmute` event
     if (!track.muted || adapter.browserDetails.browser === 'safari') {
-      console.log(`${track.kind} ${this.id} srcObject was set directly`);
-      el.srcObject = new MediaStream([track]);
-      this.setAttribute('has-' + track.kind, true);
+      setTrack('srcObject was set directly');
     } else {
       track.onunmute = () => {
-        console.log(`track ${track.kind} onunmute for ${this.id}`);
-        el.srcObject = new MediaStream([track]);
-        this.setAttribute('has-' + track.kind, true);
+        setTrack('onunmute event set srcObject');
       };
     }
+  }
+
+  _emitEvent(name, detail = null) {
+    return this.dispatchEvent(new CustomEvent(name, {
+      bubbles: true,
+      composed: true, // allows to break out of the Shadow DOM
+      detail
+    }));
   }
 }
 customElements.define('webrtc-media', WebRtcMedia);
