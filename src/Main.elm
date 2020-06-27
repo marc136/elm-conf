@@ -63,7 +63,7 @@ type alias User =
     { id : UserId
     , webRtcSupport : WebRtcSupport
     , pc : PeerConnection
-    , media : { audio : MediaTrack, video : MediaTrack }
+    , media : MediaTracks
     }
 
 
@@ -73,6 +73,12 @@ type alias PeerConnection =
 
 type alias IceCandidate =
     Json.Value
+
+
+type alias MediaTracks =
+    { audio : MediaTrack
+    , video : MediaTrack
+    }
 
 
 type MediaTrack
