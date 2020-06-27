@@ -189,7 +189,7 @@ function addLocalStream(pc, stream) {
 }
 
 function connectToRoom(roomId) {
-  const address = `ws://${location.hostname}:8443/join/123123`;
+  const address = `ws://${location.hostname}:8443/join/${roomId}`;
   console.log('Will connect to', address);
   const ws = new WebSocket(address);
   ws.onopen = evt => {
