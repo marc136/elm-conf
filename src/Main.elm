@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import Active.Messages as ActiveMsg
 import Browser
 import Const
 import Dict exposing (Dict)
@@ -71,10 +72,6 @@ type alias PeerConnection =
     Json.Value
 
 
-type alias IceCandidate =
-    Json.Value
-
-
 type alias MediaTracks =
     { audio : MediaTrack
     , video : MediaTrack
@@ -86,7 +83,7 @@ type MediaTrack
     | MediaTrack Json.Value
 
 
-initUser : Ports.In.User -> User
+initUser : ActiveMsg.User -> User
 initUser { id, supportsWebRtc, pc, browser, browserVersion } =
     { id = id
     , webRtcSupport =
@@ -137,25 +134,9 @@ type Msg
     | ReleaseUserMedia
     | GotLocalStream Stream
     | JoinResponse Ports.In.JoinSuccess
-    | ActiveMsg Ports.In.Active
-    | ActiveMsgUserEvent UserId UserCustomEvent
+    | ActiveMsg ActiveMsg.Msg
     | Leave
     | InvalidPortMsg Json.Error
-
-
-type UserCustomEvent
-    = GotTrack TrackEvent
-
-
-type alias TrackEvent =
-    { kind : MediaKind
-    , track : Json.Value
-    }
-
-
-type MediaKind
-    = Audio
-    | Video
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -217,14 +198,6 @@ update msg model =
             activeUpdate sub data
                 |> Tuple.mapFirst Active
 
-        ( ActiveMsgUserEvent userId event, Active data ) ->
-            Dict.get userId data.users
-                |> Maybe.map (activeCustomEventUpdate event)
-                |> Maybe.map (\user -> Dict.insert user.id user data.users)
-                |> Maybe.map (\users -> { data | users = users })
-                |> Maybe.withDefault data
-                |> (\changed -> ( Active changed, Cmd.none ))
-
         ( InvalidPortMsg err, _ ) ->
             let
                 _ =
@@ -250,10 +223,10 @@ releaseUserMedia local =
             Cmd.none
 
 
-activeUpdate : Ports.In.Active -> ActiveData -> ( ActiveData, Cmd msg )
+activeUpdate : ActiveMsg.Msg -> ActiveData -> ( ActiveData, Cmd msg )
 activeUpdate msg model =
     case msg of
-        Ports.In.UserMsg u ->
+        ActiveMsg.UserJoined u ->
             if u.id == model.userId then
                 -- for now the server will not give us new data about oneself
                 ( model, Cmd.none )
@@ -274,7 +247,7 @@ activeUpdate msg model =
                         Cmd.none
                 )
 
-        Ports.In.UserLeft userId ->
+        ActiveMsg.UserLeft userId ->
             case Dict.get userId model.users of
                 Nothing ->
                     ( model, Cmd.none )
@@ -284,82 +257,63 @@ activeUpdate msg model =
                     , Ports.closeRemotePeerConnection user.pc
                     )
 
-        Ports.In.LocalSdpOffer { for, sdp } ->
-            case Dict.get for model.users of
-                Just user ->
-                    let
-                        _ =
-                            Debug.log "LocalSdpOffer is ignored in elm" sdp
-                    in
-                    ( model, Cmd.none )
+        ActiveMsg.UserUpdated userId event ->
+            case Dict.get userId model.users of
+                Just before ->
+                    activeUpdateUser model.localStream event before
+                        |> Tuple.mapFirst (\user -> Dict.insert user.id user model.users)
+                        |> Tuple.mapFirst (\users -> { model | users = users })
 
                 Nothing ->
                     ( model, Cmd.none )
 
-        Ports.In.RemoteSdpOffer { from, sdp } ->
-            case Dict.get from model.users of
-                Just { pc } ->
-                    ( model
-                    , case model.localStream of
-                        LocalStream stream ->
-                            Ports.createSdpAnswerFor sdp from pc stream model.socket
-
-                        _ ->
-                            Cmd.none
-                    )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        Ports.In.LocalSdpAnswer { for, sdp } ->
-            case Dict.get for model.users of
-                Just user ->
-                    let
-                        _ =
-                            Debug.log "LocalSdpAnswer is ignored in elm" sdp
-                    in
-                    ( model, Cmd.none )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        Ports.In.RemoteSdpAnswer { from, sdp } ->
-            case Dict.get from model.users of
-                Just user ->
-                    ( model
-                    , Ports.setRemoteSdpAnswer sdp from user.pc
-                    )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
-        Ports.In.RemoteIceCandidate { from, candidate } ->
-            case Dict.get from model.users of
-                Just user ->
-                    ( model
-                    , Ports.setRemoteIceCandidate from candidate user.pc
-                    )
-
-                Nothing ->
-                    ( model, Cmd.none )
+        ActiveMsg.Leave ->
+            -- message is handled before
+            ( model, Cmd.none )
 
 
-activeCustomEventUpdate : UserCustomEvent -> User -> User
-activeCustomEventUpdate msg user =
+activeUpdateUser : LocalStream -> ActiveMsg.Updated -> User -> ( User, Cmd msg )
+activeUpdateUser localStream msg user =
     case msg of
-        GotTrack track ->
-            setTrack track user
+        ActiveMsg.LocalSdpOffer _ ->
+            ( user, Cmd.none )
+
+        ActiveMsg.RemoteSdpOffer sdp ->
+            ( user
+            , case localStream of
+                LocalStream stream ->
+                    Ports.createSdpAnswerFor sdp user.id user.pc stream
+
+                _ ->
+                    Cmd.none
+            )
+
+        ActiveMsg.LocalSdpAnswer _ ->
+            ( user, Cmd.none )
+
+        ActiveMsg.RemoteSdpAnswer sdp ->
+            ( user
+            , Ports.setRemoteSdpAnswer sdp user.id user.pc
+            )
+
+        ActiveMsg.RemoteIceCandidate candidate ->
+            ( user
+            , Ports.setRemoteIceCandidate user.id candidate user.pc
+            )
+
+        ActiveMsg.GotTrack track ->
+            ( setTrack track user, Cmd.none )
 
 
-setTrack : TrackEvent -> User -> User
+setTrack : ActiveMsg.TrackEvent -> User -> User
 setTrack { kind, track } ({ media } as user) =
     { user
         | media =
             case kind of
-                Audio ->
+                ActiveMsg.Audio ->
                     { media | audio = MediaTrack track }
 
-                Video ->
+                ActiveMsg.Video ->
                     { media | video = MediaTrack track }
     }
 
@@ -477,18 +431,18 @@ viewActive model =
 keyedOtherUser : ( UserId, User ) -> ( String, Html Msg )
 keyedOtherUser ( userId, user ) =
     ( String.fromInt userId
-    , viewOtherUser user
+    , viewOtherUser user |> Html.map ActiveMsg
     )
 
 
-viewOtherUser : User -> Html Msg
+viewOtherUser : User -> Html ActiveMsg.Msg
 viewOtherUser user =
     Html.node "webrtc-media"
         [ id <| "user-" ++ String.fromInt user.id
         , Html.Attributes.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
         , Html.Attributes.attribute "browserAttr" <| userBrowser user.webRtcSupport
         , Html.Attributes.property "pc" user.pc
-        , onCustomEvent user.id "track" GotTrack decodeTrackEvent
+        , onCustomEvent "track" (ActiveMsg.UserUpdated user.id) ActiveMsg.gotTrackDecoder
         ]
         []
 
@@ -503,35 +457,10 @@ userBrowser support =
             browser
 
 
-onCustomEvent : UserId -> String -> (m -> UserCustomEvent) -> Json.Decoder m -> Html.Attribute Msg
-onCustomEvent userId name event decoder =
-    Html.Events.on name <|
-        Json.map (ActiveMsgUserEvent userId << event)
-            (Json.field "detail" decoder)
-
-
-decodeTrackEvent : Json.Decoder TrackEvent
-decodeTrackEvent =
-    Json.map2 TrackEvent
-        (Json.field "kind" mediaKindDecoder)
-        (Json.field "track" Json.value)
-
-
-mediaKindDecoder : Json.Decoder MediaKind
-mediaKindDecoder =
-    Json.string
-        |> Json.andThen
-            (\str ->
-                case str of
-                    "audio" ->
-                        Json.succeed Audio
-
-                    "video" ->
-                        Json.succeed Video
-
-                    _ ->
-                        Json.fail <| "Unknown media kind '" ++ str ++ "'"
-            )
+onCustomEvent : String -> (m -> ActiveMsg.Msg) -> Json.Decoder m -> Html.Attribute ActiveMsg.Msg
+onCustomEvent event toMsg decoder =
+    Html.Events.on event <|
+        Json.map toMsg (Json.field "detail" decoder)
 
 
 header : Html Msg

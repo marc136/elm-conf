@@ -53,8 +53,8 @@ closeRemotePeerConnection pc =
     send "closeRemotePeerConnection" [ ( "pc", pc ) ]
 
 
-createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Encode.Value -> Cmd msg
-createSdpAnswerFor sdp id pc localStream webSocket =
+createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Cmd msg
+createSdpAnswerFor sdp id pc localStream =
     send "createSdpAnswer"
         [ ( "offer"
           , Encode.object
@@ -65,7 +65,6 @@ createSdpAnswerFor sdp id pc localStream webSocket =
         , ( "from", Encode.int id )
         , ( "pc", pc )
         , ( "localStream", localStream )
-        , ( "ws", webSocket )
         ]
 
 
