@@ -20,6 +20,7 @@ type alias JoinSuccess =
 type alias User =
     { id : UserId
     , supportsWebRtc : Bool
+    , pc : Json.Value
     , browser : String
     , browserVersion : Int
     }
@@ -37,7 +38,6 @@ type Active
     | LocalSdpAnswer { for : UserId, sdp : String }
     | RemoteSdpAnswer { from : UserId, sdp : String }
     | RemoteIceCandidate { from : UserId, candidate : Json.Value }
-    | NewPeerConnection { for : UserId, pc : Json.Value }
 
 
 port incoming : (Json.Value -> msg) -> Sub msg
@@ -57,9 +57,10 @@ joinSuccess =
 
 user : Decoder User
 user =
-    Json.map4 User
+    Json.map5 User
         (Json.field "userId" Json.int)
         (Json.field "supportsWebRtc" Json.bool)
+        (Json.field "pc" Json.value)
         (Json.field "browser" Json.string)
         (Json.field "browserVersion" Json.int)
 
@@ -80,12 +81,6 @@ activeDecoders type_ =
         "leave" ->
             Json.map UserLeft
                 (Json.field "user" Json.int)
-
-        "peerConnection" ->
-            Json.map2
-                (\id pc -> NewPeerConnection { for = id, pc = pc })
-                (Json.field "for" Json.int)
-                (Json.field "pc" Json.value)
 
         "offer" ->
             Json.oneOf

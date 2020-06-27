@@ -67,9 +67,8 @@ type alias User =
     }
 
 
-type PeerConnection
-    = PeerConnection Json.Value
-    | QueuedIceCandidates (List IceCandidate)
+type alias PeerConnection =
+    Json.Value
 
 
 type alias IceCandidate =
@@ -82,7 +81,7 @@ type MediaTrack
 
 
 initUser : Ports.In.User -> User
-initUser { id, supportsWebRtc, browser, browserVersion } =
+initUser { id, supportsWebRtc, pc, browser, browserVersion } =
     { id = id
     , webRtcSupport =
         if supportsWebRtc then
@@ -90,7 +89,7 @@ initUser { id, supportsWebRtc, browser, browserVersion } =
 
         else
             NoWebRtcSupport
-    , pc = QueuedIceCandidates []
+    , pc = pc
     , media = { audio = NoTrack, video = NoTrack }
     }
 
@@ -234,11 +233,12 @@ activeUpdate msg model =
                 ( model, Cmd.none )
 
             else
-                -- another user has joined, create a PeerConnection to her
+                -- another user has joined
                 ( { model | users = Dict.insert u.id (initUser u) model.users }
                 , case model.localStream of
                     LocalStream stream ->
-                        Ports.createSdpOfferFor u.id stream
+                        -- initiate the PeerConnection to her
+                        Ports.createSdpOfferFor u.id u.pc stream
 
                     _ ->
                         Cmd.none
@@ -251,39 +251,7 @@ activeUpdate msg model =
 
                 Just user ->
                     ( { model | users = Dict.remove userId model.users }
-                    , case user.pc of
-                        PeerConnection pc ->
-                            Ports.closeRemotePeerConnection pc
-
-                        _ ->
-                            Cmd.none
-                    )
-
-        Ports.In.NewPeerConnection { for, pc } ->
-            case Dict.get for model.users of
-                Nothing ->
-                    -- TODO release pc because user has left the session
-                    ( model, Cmd.none )
-
-                Just user ->
-                    ( { model
-                        | users =
-                            Dict.insert for
-                                { user | pc = PeerConnection pc }
-                                model.users
-                      }
-                    , case user.pc of
-                        QueuedIceCandidates [] ->
-                            Cmd.none
-
-                        QueuedIceCandidates candidates ->
-                            List.map
-                                (\c -> Ports.setRemoteIceCandidate for c pc)
-                                candidates
-                                |> Cmd.batch
-
-                        _ ->
-                            Cmd.none
+                    , Ports.closeRemotePeerConnection user.pc
                     )
 
         Ports.In.LocalSdpOffer { for, sdp } ->
@@ -300,11 +268,11 @@ activeUpdate msg model =
 
         Ports.In.RemoteSdpOffer { from, sdp } ->
             case Dict.get from model.users of
-                Just _ ->
+                Just { pc } ->
                     ( model
                     , case model.localStream of
                         LocalStream stream ->
-                            Ports.createSdpAnswerFor sdp from stream model.socket
+                            Ports.createSdpAnswerFor sdp from pc stream model.socket
 
                         _ ->
                             Cmd.none
@@ -329,12 +297,7 @@ activeUpdate msg model =
             case Dict.get from model.users of
                 Just user ->
                     ( model
-                    , case user.pc of
-                        PeerConnection pc ->
-                            Ports.setRemoteSdpAnswer sdp from pc
-
-                        _ ->
-                            Cmd.none
+                    , Ports.setRemoteSdpAnswer sdp from user.pc
                     )
 
                 Nothing ->
@@ -343,21 +306,9 @@ activeUpdate msg model =
         Ports.In.RemoteIceCandidate { from, candidate } ->
             case Dict.get from model.users of
                 Just user ->
-                    case user.pc of
-                        QueuedIceCandidates list ->
-                            ( { model
-                                | users =
-                                    Dict.insert from
-                                        { user | pc = QueuedIceCandidates (candidate :: list) }
-                                        model.users
-                              }
-                            , Cmd.none
-                            )
-
-                        PeerConnection pc ->
-                            ( model
-                            , Ports.setRemoteIceCandidate from candidate pc
-                            )
+                    ( model
+                    , Ports.setRemoteIceCandidate from candidate user.pc
+                    )
 
                 Nothing ->
                     ( model, Cmd.none )
@@ -482,18 +433,13 @@ keyedOtherUser ( userId, user ) =
 
 viewOtherUser : User -> Html Msg
 viewOtherUser user =
-    case user.pc of
-        QueuedIceCandidates _ ->
-            Html.node "div" [] [ text <| "user " ++ String.fromInt user.id ]
-
-        PeerConnection pc ->
-            Html.node "webrtc-media"
-                [ id <| "user-" ++ String.fromInt user.id
-                , Html.Attributes.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
-                , Html.Attributes.attribute "browserAttr" <| userBrowser user.webRtcSupport
-                , Html.Attributes.property "pc" pc
-                ]
-                []
+    Html.node "webrtc-media"
+        [ id <| "user-" ++ String.fromInt user.id
+        , Html.Attributes.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
+        , Html.Attributes.attribute "browserAttr" <| userBrowser user.webRtcSupport
+        , Html.Attributes.property "pc" user.pc
+        ]
+        []
 
 
 userBrowser : WebRtcSupport -> String

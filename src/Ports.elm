@@ -39,10 +39,11 @@ disconnectFromServer =
     send "disconnect" []
 
 
-createSdpOfferFor : Int -> Encode.Value -> Cmd msg
-createSdpOfferFor id localStream =
+createSdpOfferFor : Int -> Encode.Value -> Encode.Value -> Cmd msg
+createSdpOfferFor id pc localStream =
     send "createSdpOffer"
         [ ( "for", Encode.int id )
+        , ( "pc", pc )
         , ( "localStream", localStream )
         ]
 
@@ -52,8 +53,8 @@ closeRemotePeerConnection pc =
     send "closeRemotePeerConnection" [ ( "pc", pc ) ]
 
 
-createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Cmd msg
-createSdpAnswerFor sdp id localStream webSocket =
+createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Encode.Value -> Cmd msg
+createSdpAnswerFor sdp id pc localStream webSocket =
     send "createSdpAnswer"
         [ ( "offer"
           , Encode.object
@@ -62,6 +63,7 @@ createSdpAnswerFor sdp id localStream webSocket =
                 ]
           )
         , ( "from", Encode.int id )
+        , ( "pc", pc )
         , ( "localStream", localStream )
         , ( "ws", webSocket )
         ]

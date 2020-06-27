@@ -74,7 +74,7 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'createSdpOffer':
-      initiateSdpOffer(msg.for, msg.localStream);
+      initiateSdpOffer(msg.for, msg.pc, msg.localStream);
       break;
 
     case 'closeRemotePeerConnection':
@@ -82,7 +82,10 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'createSdpAnswer':
-      receiveSdpOffer(msg.offer, msg.from, msg.localStream, msg.ws);
+      requestAnimationFrame(() => {
+        // wait until the webrtc-media element is rendered
+        receiveSdpOffer(msg.offer, msg.from, msg.pc, msg.localStream, msg.ws);
+      });
       break;
 
     case 'setRemoteSdpAnswer':
@@ -120,12 +123,10 @@ function stopStream(stream) {
 
 /**
  * @param {number} peerId
+ * @param {RTCPeerConnection} pc
  * @param {MediaStream} localStream
  */
-async function initiateSdpOffer(peerId, localStream) {
-  const pc = new RTCPeerConnection(pcConfig);
-  addDevEventHandlers(peerId, pc);
-  toElm({ type: 'peerConnection', for: peerId, pc });
+async function initiateSdpOffer(peerId, pc, localStream) {
   pc.onicecandidate = propagateLocalIceCandidates(peerId);
 
   pc.onnegotiationneeded = async () => {
@@ -147,22 +148,31 @@ async function initiateSdpOffer(peerId, localStream) {
 /**
  * @param {RTCSessionDescription} sdp
  * @param {number} from
+ * @param {RTCPeerConnection} pc
  * @param {MediaStream} localStream
- * @param {WebSocket} ws
  */
-async function receiveSdpOffer(sdp, from, localStream, ws) {
-  const pc = new RTCPeerConnection(pcConfig);
-  toElm({ type: 'peerConnection', for: from, pc });
-  addDevEventHandlers(from, pc);
-  pc.onicecandidate = propagateLocalIceCandidates(from, ws);
+async function receiveSdpOffer(sdp, from, pc, localStream) {
+  pc.onicecandidate = propagateLocalIceCandidates(from);
 
   await pc.setRemoteDescription(sdp);
-  addLocalStream(pc, localStream);
 
-  const answer = await pc.createAnswer()
-  toElm({ type: 'answer', for: from, sdp: answer.sdp });
-  await pc.setLocalDescription(answer);
-  toServer({ type: 'answer', for: from, sdp: answer.sdp });
+  async function createAndPropagateAnswer() {
+    console.debug('createAndPropagateAnswer', { for: from })
+    addLocalStream(pc, localStream);
+    const answer = await pc.createAnswer()
+    toElm({ type: 'answer', for: from, sdp: answer.sdp });
+    await pc.setLocalDescription(answer);
+    toServer({ type: 'answer', for: from, sdp: answer.sdp });
+  }
+
+  if (pc.createAndPropagateAnswer) {
+    console.debug('Will invoke createAndPropagateAnswer because the webrtc-media element is connected')
+    delete pc.createAndPropagateAnswer;
+    await createAndPropagateAnswer()
+  } else {
+    console.debug('Will store createAndPropagateAnswer because the webrtc-media element is not connected')
+    pc.createAndPropagateAnswer = createAndPropagateAnswer;
+  }
 }
 
 /**
@@ -207,7 +217,7 @@ function connectToRoom(roomId) {
     const msg = getMsg(evt.data);
     console.debug('got msg', msg);
     msg.socket = ws;
-    toElm(msg);
+    handleServerMessage(msg);
   };
 
   ws.onclose = evt => {
@@ -224,6 +234,27 @@ function getMsg(data) {
   } catch (error) {
     return data
   }
+}
+
+function handleServerMessage(msg) {
+  switch (msg.type) {
+    case 'join-success':
+      msg.users.forEach(user => {
+        createPeerConnectionOnUser(user);
+      });
+      break;
+
+    case 'user':
+      createPeerConnectionOnUser(msg.user);
+      break;
+  }
+
+  toElm(msg);
+}
+
+function createPeerConnectionOnUser(user) {
+  user.pc = new RTCPeerConnection(pcConfig);
+  addDevEventHandlers(user.userId, user.pc);
 }
 
 /**
