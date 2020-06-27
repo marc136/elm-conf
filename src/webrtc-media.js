@@ -41,27 +41,53 @@ export default class WebRtcMedia extends HTMLElement {
   }
 
   _addPeerConnectionEventListeners() {
-    this.pc.ontrack = ({ track, streams }) => {
-      console.log(`ontrack for ${this.id}`, track, this);
-      this._playTrack(track);
-    };
+    const receivers = this.pc.getReceivers();
+    if (receivers.length > 0) {
+      // the ontrack event was already emitted and we missed it. We will trigger _playTrack directly
+      // this happens e.g. if the page was in the background
+      receivers.forEach(receiver => {
+        console.log(`faking ontrack for ${this.id}`, this);
+        this._playTrack(receiver.track);
+      });
+    } else {
+      this.pc.ontrack = ({ track, streams }) => {
+        console.log(`ontrack for ${this.id}`, track, this);
+        this._playTrack(track);
+      };
+    }
+
+    if (typeof this.pc.createAndPropagateAnswer === 'function') {
+      delete pc.createAndPropagateAnswer;
+      this.pc.createAndPropagateAnswer();
+    } else {
+      this.pc.createAndPropagateAnswer = true;
+    }
   }
 
+  /**
+   * Play the media track in the corresponding media element
+   * @param {MediaStreamTrack} track
+   */
   _playTrack(track) {
     const el = this[track.kind + 'Element'];
     if (!el) {
-      console.error(`could not play ${track.kind} track because media element was not found`, track);
+      console.error(`Could not play ${track.kind} track because media element was not found`, track);
     }
-    this.setAttribute('has-' + track.kind, true);
 
-    console.warn('_playTrack', this.id, track);
-    track.onunmute = () => {
-      console.log(`track.onunmute for ${this.id}`, track);
+    console.debug('_playTrack', this.id, track);
+
+    // it looks better if the video element is only shown if frames are received (-> not muted),
+    // but safari does not trigger the `onunmute` event
+    if (!track.muted || adapter.browserDetails.browser === 'safari') {
+      console.log(`${track.kind} ${this.id} srcObject was set directly`);
       el.srcObject = new MediaStream([track]);
-    };
-    if (adapter.browserDetails.browser === 'safari') {
-      console.log(`${track.kind} ${this.id} srcObject was set directly because safari does not trigger track.onunmute`);
-      el.srcObject = new MediaStream([track]);
+      this.setAttribute('has-' + track.kind, true);
+    } else {
+      track.onunmute = () => {
+        console.log(`track ${track.kind} onunmute for ${this.id}`);
+        el.srcObject = new MediaStream([track]);
+        this.setAttribute('has-' + track.kind, true);
+      };
     }
   }
 }

@@ -298,6 +298,6 @@ function addDevEventHandlers(userId, pc) {
     // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
     // This can e.g. be fixed by only creating a new peer connection when the page is visible
     // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API
-    console.error(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
+    console.log(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
   };
 }
