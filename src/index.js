@@ -12,6 +12,7 @@ const webRtcSupport = {
 };
 const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedia || false;
 
+// TODO remove state.ws
 const state = {
   ws: undefined // TODO remove this
 };
@@ -25,7 +26,8 @@ const elm = Elm.Main.init({
   }
 });
 
-function toServer(json) {
+function toServer(json, ws) {
+  // if (!ws) return console.error('FATAL ERROR: no websocket was given')
   state.ws.send(JSON.stringify(json));
 }
 
@@ -47,6 +49,7 @@ elm.ports.out.subscribe(async msg => {
 
   switch (msg.type) {
     case 'disconnect':
+      // TODO remove state.ws
       state.ws.close(1000, "User left conference");
       break;
 
@@ -70,6 +73,7 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'join':
+      // TODO remove state.ws
       state.ws = connectToRoom(msg.room);
       break;
 
