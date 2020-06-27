@@ -184,7 +184,7 @@ function propagateLocalIceCandidates(peerId, ws) {
     console.debug(`Found local ICE candidate for peer ${peerId}`);
     const data = { type: 'ice-candidate', for: peerId, candidate };
     // toElm(data);
-    // toServer(data);
+    toServer(data);
   };
 }
 
