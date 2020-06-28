@@ -5,6 +5,7 @@ import * as serviceWorker from './serviceWorker';
 // import custom elements
 import './camera-select.js';
 import './webrtc-media.js';
+import './self-video.js';
 
 const webRtcSupport = {
   peerConnection: !!window.RTCPeerConnection,
@@ -45,7 +46,7 @@ const pcConfig = {
 };
 
 elm.ports.out.subscribe(async msg => {
-  console.warn('got from elm', msg);
+  console.debug('got from elm', msg);
 
   switch (msg.type) {
     case 'disconnect':
@@ -53,23 +54,8 @@ elm.ports.out.subscribe(async msg => {
       state.ws.close(1000, "User left conference");
       break;
 
-    case 'getUserMedia':
-      console.error('todo: implement getUserMedia');
-      break;
-
     case 'releaseUserMedia':
       stopStream(msg.stream);
-      break;
-
-    case 'attachStreamToId':
-      requestAnimationFrame(() => {
-        const video = document.getElementById(msg.id)
-        if (video && video.tagName == 'VIDEO') {
-          video.srcObject = msg.stream;
-        } else {
-          console.warn(`Could not find video element with id #${msg.id}`, video);
-        }
-      })
       break;
 
     case 'join':
@@ -95,7 +81,7 @@ elm.ports.out.subscribe(async msg => {
     case 'setRemoteSdpAnswer':
       msg.pc.setRemoteDescription(msg.answer)
         .then(() => {
-          console.debug('Successfully set remote SDP answer', msg);
+          console.log('Successfully set remote SDP answer', msg);
         })
         .catch(ex => {
           console.error('could not set remote SDP answer', ex, msg);
@@ -108,7 +94,7 @@ elm.ports.out.subscribe(async msg => {
           console.debug('Successfully set remote ICE candidate', msg);
         })
         .catch(ex => {
-          console.error('could not set remote ICE candidate', ex, msg);
+          console.error('Could not set remote ICE candidate', ex, msg);
         })
       break;
 
@@ -193,6 +179,7 @@ function propagateLocalIceCandidates(peerId, ws) {
 }
 
 /**
+ * Adds all tracks of the stream to an RTCPeerConnection
  * @param {RTCPeerConnection} pc
  * @param {MediaStream} stream
  */
@@ -302,6 +289,6 @@ function addDevEventHandlers(userId, pc) {
     // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
     // This can e.g. be fixed by only creating a new peer connection when the page is visible
     // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API
-    console.log(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
+    console.warn(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
   };
 }

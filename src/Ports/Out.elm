@@ -1,10 +1,8 @@
-port module Ports exposing
-    ( attachMediaStream
-    , closeRemotePeerConnection
+port module Ports.Out exposing
+    ( closeRemotePeerConnection
     , createSdpAnswerFor
     , createSdpOfferFor
     , disconnectFromServer
-    , getUserMedia
     , joinRoom
     , releaseUserMedia
     , setRemoteIceCandidate
@@ -12,11 +10,6 @@ port module Ports exposing
     )
 
 import Json.Encode as Encode exposing (Value)
-
-
-getUserMedia : Cmd msg
-getUserMedia =
-    send "getuserMedia" []
 
 
 releaseUserMedia : Value -> Cmd msg
@@ -27,11 +20,6 @@ releaseUserMedia stream =
 joinRoom : String -> Cmd msg
 joinRoom roomId =
     send "join" [ ( "room", Encode.string roomId ) ]
-
-
-attachMediaStream : String -> Value -> Cmd msg
-attachMediaStream id stream =
-    send "attachStreamToId" [ ( "stream", stream ), ( "id", Encode.string id ) ]
 
 
 disconnectFromServer : Cmd msg

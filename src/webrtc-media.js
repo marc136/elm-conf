@@ -1,3 +1,8 @@
+import icon from './icons.js';
+import * as stats from './webrtc-stats.js';
+
+let debug = false;
+
 export default class WebRtcMedia extends HTMLElement {
   constructor() {
     super();
@@ -6,38 +11,58 @@ export default class WebRtcMedia extends HTMLElement {
     // element is connected to the DOM (e.g. if the page is not in the foreground in Chrome)
     const video = document.createElement("video");
     video.muted = true;
-    // will be blocked on some browsers if our stream contains audio and video and it is not muted
     video.autoplay = true;
     // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
     video.setAttribute("playsinline", true);
     this.videoElement = video;
 
+    ['playing', 'stalled'].forEach(event => {
+      this.videoElement.addEventListener(event, () => {
+        console.log(new Date().toISOString(), `${event} event for ${this.id}`);
+        this._emitEvent('video', event);
+      });
+    })
+
+    this.loadingElement = icon('refresh-cw');
+    this.loadingElement.classList.add('connecting-animation')
+
+    this.infoElement = document.createElement('pre');
+    this.infoElement.classList.add('info');
+
     const audio = document.createElement('audio');
     audio.autoplay = true;
     this.audioElement = audio;
+
+    /** @type {GatheredStats} */
+    this.stats = { last: undefined, inbound: [], outbound: [] };
   }
 
   connectedCallback() {
     console.log('WebRtcMedia connected')
     // attach a shadow root so nobody can mess with your styles
     // const shadow = this.attachShadow({ mode: "open" });
+    this.appendChild(this.loadingElement);
 
     this.appendChild(this.videoElement);
     this.videoElement.classList.remove('hidden');
     this.appendChild(this.audioElement);
 
-    this.videoElement.controls = true; // TODO remove
-    this.audioElement.controls = true; // TODO remove
+    if (debug) {
+      this.audioElement.controls = true;
+      this.videoElement.controls = true;
+    }
+    this.appendChild(this.infoElement);
+    requestAnimationFrame(() => { peerConnectionInfo(this, this.infoElement); });
 
     this._addPeerConnectionEventListeners();
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    console.error(`attributeChanged "${name}"`, { oldValue, newValue });
+    console.log(`attributeChanged "${name}" for ${this.id}`, { oldValue, newValue });
   }
 
   static get observedAttributes() {
-    return ['has-media', 'has-video', 'has-audio'];
+    return ['has-media', 'has-video', 'has-audio', 'view'];
   }
 
   _addPeerConnectionEventListeners() {
@@ -57,8 +82,9 @@ export default class WebRtcMedia extends HTMLElement {
     }
 
     if (typeof this.pc.createAndPropagateAnswer === 'function') {
-      delete pc.createAndPropagateAnswer;
-      this.pc.createAndPropagateAnswer();
+      const fn = this.pc.createAndPropagateAnswer;
+      delete this.pc.createAndPropagateAnswer;
+      return fn();
     } else {
       this.pc.createAndPropagateAnswer = true;
     }
@@ -77,7 +103,7 @@ export default class WebRtcMedia extends HTMLElement {
     const setTrack = (log) => {
       console.log(`${track.kind} ${this.id} ${log}`);
       el.srcObject = new MediaStream([track]);
-      this.setAttribute('has-' + track.kind, true);
+      // this.setAttribute('has-' + track.kind, true);
       this._emitEvent('track', { kind: track.kind, track });
     }
 
@@ -89,6 +115,7 @@ export default class WebRtcMedia extends HTMLElement {
       setTrack('srcObject was set directly');
     } else {
       track.onunmute = () => {
+        track.onunmute = null;
         setTrack('onunmute event set srcObject');
       };
     }
@@ -103,3 +130,25 @@ export default class WebRtcMedia extends HTMLElement {
   }
 }
 customElements.define('webrtc-media', WebRtcMedia);
+
+
+/**
+ * @param {WebRtcMedia} webrtc
+ * @param {HTMLElement} info
+ */
+async function peerConnectionInfo(webrtc, info) {
+  try {
+    if (webrtc.pc.connectionState !== 'connected') {
+      // It would be better to listen to the individual events instead
+      // https://www.w3.org/TR/2019/CR-webrtc-20191213/#event-summary
+      stats.init(webrtc.pc, info);
+    } else {
+      // return stats.fullReport(webrtc.pc, el);
+      await stats.connected(webrtc.pc, webrtc.stats, info);
+    }
+    setTimeout(() => { peerConnectionInfo(webrtc, info); }, 1000);
+  } catch (ex) {
+    console.error('peerConnectionInfo failed', ex)
+    info.textContent = 'failed to get stats'
+  }
+}

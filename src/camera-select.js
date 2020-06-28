@@ -1,3 +1,5 @@
+import icon from './icons.js';
+
 /**
  * Returns media constraints
  * https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
@@ -19,6 +21,25 @@ export default class CameraSelect extends HTMLElement {
 
   constructor() {
     super();
+
+    this.textElement = document.createTextNode("Init");
+
+    this.videoElement = document.createElement("video");
+    this.videoElement.muted = true;
+    this.videoElement.autoplay = true;
+    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
+    this.videoElement.setAttribute("playsinline", true);
+    this.videoElement.classList.add('hidden');
+
+    this.audioInput = document.createElement('label');
+    this.audioInput.textContent = "Audio";
+    this.audioInputSelect = document.createElement('select');
+    this.audioInput.classList.add('hidden');
+
+    this.videoInput = document.createElement('label');
+    this.videoInput.textContent = "Video";
+    this.videoInputSelect = document.createElement('select');
+    this.videoInput.classList.add('hidden');
   }
 
   connectedCallback() {
@@ -27,26 +48,11 @@ export default class CameraSelect extends HTMLElement {
     // requires additional effort for emitting the custom events
     // const shadow = this.attachShadow({ mode: "open" });
 
-    this.textElement = document.createTextNode("Init");
     this.appendChild(this.textElement);
 
-    this.videoElement = document.createElement("video");
-    this.videoElement.muted = true;
-    this.videoElement.autoplay = true;
-    // https://css-tricks.com/what-does-playsinline-mean-in-web-video/
-    this.videoElement.setAttribute("playsinline", true);
-    this.videoElement.classList.add('hidden');
     this.appendChild(this.videoElement);
 
-    this.audioInput = document.createElement('label');
-    this.audioInput.textContent = "Audio";
-    this.audioInputSelect = document.createElement('select');
-    this.audioInput.classList.add('hidden');
     this.appendChild(this.audioInput);
-    this.videoInput = document.createElement('label');
-    this.videoInput.textContent = "Video";
-    this.videoInputSelect = document.createElement('select');
-    this.videoInput.classList.add('hidden');
     this.appendChild(this.videoInput);
 
     this.selectors = [this.audioInputSelect, this.videoInputSelect];

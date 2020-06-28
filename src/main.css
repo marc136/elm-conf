@@ -174,19 +174,49 @@ button.circle:focus {
   padding: 5px 10px;
 }
 
+.conf self-video,
 .conf webrtc-media {
   position: relative;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
+  background: fuchsia;
+  z-index: 1;
 }
 
-.conf webrtc-media,
-.conf video#own-video {
+.conf self-video,
+.conf webrtc-media {
   width: var(--box-width);
   height: var(--box-height);
 }
 
+.conf webrtc-media .connecting-animation {  
+  --width: calc(var(--box-width) * 0.3);
+  --height: calc(var(--box-height) * 0.3);
+
+  position: absolute;
+  width: var(--width);
+  height: var(--height);
+  top: calc((var(--box-height) - var(--height)) / 2);
+  left: calc((var(--box-width) - var(--width)) / 2);
+  animation: rotation 3s infinite linear;
+  z-index: 3;
+  transition: top 0.7s;
+  stroke: white;
+}
+
+.conf webrtc-media[view="initial"] video {
+  /* will not emit "playing" event in Chrome */
+  /* display: none; */
+  top: calc(var(--box-height) + 10px);
+}
+
+.conf webrtc-media[view="playing"] .connecting-animation {
+  top: calc(var(--box-height) + 10px);
+  animation: none;
+}
+
+.conf self-video > video,
 .conf webrtc-media > video {
   max-height: 100%;
   flex: 1 1 auto;
@@ -201,6 +231,7 @@ button.circle:focus {
 
 .conf webrtc-media:focus > audio,
 .conf webrtc-media:hover > audio {
+  /* useful if debug = true in webrtc-media.js */
   display: block;
 }
 
@@ -225,4 +256,24 @@ button.circle:focus {
     --box-width: 90vw;
     --box-height: calc(var(--box-width) / var(--video-ratio));
   }
+}
+
+@keyframes rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(359deg);
+  }
+}
+
+
+.info {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 0.7em;
+  padding: .5em;
+  margin: 0;
+  background-color: rgba(255, 255, 255, 0.7);
 }
