@@ -3,6 +3,14 @@ import * as stats from './webrtc-stats.js';
 
 let debug = false;
 
+// See https://developer.mozilla.org/de/docs/Web/API/RTCConfiguration
+const pcConfig = {
+  iceServers: [
+    { urls: ['stun:stun.services.mozilla.com'] },
+    // { urls: ['stun:stun.l.google.com:19302'] },
+  ]
+};
+
 export default class WebRtcMedia extends HTMLElement {
   constructor() {
     super();
@@ -54,7 +62,12 @@ export default class WebRtcMedia extends HTMLElement {
     this.appendChild(this.infoElement);
     requestAnimationFrame(() => { peerConnectionInfo(this, this.infoElement); });
 
+    this.pc = new RTCPeerConnection(pcConfig);
+    addDevEventHandlers(this.id, this.pc);
+
     this._addPeerConnectionEventListeners();
+
+    this._emitEvent('new-peer-connection', this.pc);
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -79,14 +92,6 @@ export default class WebRtcMedia extends HTMLElement {
         console.log(`ontrack for ${this.id}`, track, this);
         this._playTrack(track);
       };
-    }
-
-    if (typeof this.pc.createAndPropagateAnswer === 'function') {
-      const fn = this.pc.createAndPropagateAnswer;
-      delete this.pc.createAndPropagateAnswer;
-      return fn();
-    } else {
-      this.pc.createAndPropagateAnswer = true;
     }
   }
 
@@ -151,4 +156,34 @@ async function peerConnectionInfo(webrtc, info) {
     console.error('peerConnectionInfo failed', ex)
     info.textContent = 'failed to get stats'
   }
+}
+
+
+/**
+ * @param {string} userId
+ * @param {RTCPeerConnection} pc
+ */
+function addDevEventHandlers(userId, pc) {
+  // const node = document.querySelector(`webrtc-media#user-${userId}`);
+  // console.warn('webrtc-media user node', node);
+
+  pc.oniceconnectionstatechange = () => {
+    console.log(`dev user-${userId} oniceconnectionstatechange`, pc.iceConnectionState);
+  };
+
+  pc.onsignalingtatechange = () => {
+    console.log(`dev user-${userId} onsignalingtatechange`, pc.signalingState);
+  };
+
+  pc.onconnectionstatechange = () => {
+    console.log(`dev user-${userId} onconnectionstatechange`, pc.connectionState);
+  };
+
+  pc.ontrack = ({ track, streams }) => {
+    // Buggy behavior in Chrome 83:
+    // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
+    // This can e.g. be fixed by only creating a new peer connection when the page is visible
+    // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API
+    console.warn(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
+  };
 }

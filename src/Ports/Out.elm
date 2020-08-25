@@ -41,8 +41,8 @@ closeRemotePeerConnection pc =
     send "closeRemotePeerConnection" [ ( "pc", pc ) ]
 
 
-createSdpAnswerFor : String -> Int -> Encode.Value -> Encode.Value -> Cmd msg
-createSdpAnswerFor sdp id pc localStream =
+createSdpAnswerFor : Int -> Encode.Value -> Encode.Value -> List Encode.Value -> String -> Cmd msg
+createSdpAnswerFor id pc localStream iceCandidates sdp =
     send "createSdpAnswer"
         [ ( "offer"
           , Encode.object
@@ -53,6 +53,7 @@ createSdpAnswerFor sdp id pc localStream =
         , ( "from", Encode.int id )
         , ( "pc", pc )
         , ( "localStream", localStream )
+        , ( "iceCandidates", Encode.list identity iceCandidates )
         ]
 
 

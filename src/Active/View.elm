@@ -28,11 +28,30 @@ view model =
 keyedOtherUser : ( UserId, User ) -> ( String, Html Msg )
 keyedOtherUser ( userId, user ) =
     ( String.fromInt userId
-    , viewOtherUser user
+    , case user of
+        Model.UserWithoutWebRtc ->
+            Debug.todo "Cannot render user without WebRTC"
+
+        Model.UserWithoutPeerConnection peer ->
+            viewPending peer
+
+        Model.User peer ->
+            viewOtherUser peer
     )
 
 
-viewOtherUser : User -> Html Msg
+viewPending : Model.PendingUser -> Html Msg
+viewPending user =
+    H.node "webrtc-media"
+        [ HA.id <| "user-" ++ String.fromInt user.id
+        , HA.attribute "view" <| viewToString Model.Initial
+        , HA.property "browser" <| Json.Encode.string <| userBrowser user.browser
+        , onCustomEvent "new-peer-connection" (Msg.UserUpdated user.id) Msg.peerConnectionDecoder
+        ]
+        []
+
+
+viewOtherUser : Model.Peer -> Html Msg
 viewOtherUser user =
     H.node "webrtc-media"
         [ HA.id <| "user-" ++ String.fromInt user.id
@@ -40,7 +59,7 @@ viewOtherUser user =
             [ ( "yellow", user.view == Model.Stalled ) ]
         , HA.class <| "video-" ++ viewToString user.view
         , HA.attribute "view" <| viewToString user.view
-        , HA.property "browser" <| Json.Encode.string <| userBrowser user.webRtcSupport
+        , HA.property "browser" <| Json.Encode.string <| userBrowser user.browser
         , HA.property "pc" user.pc
         , onCustomEvent "track" (Msg.UserUpdated user.id) Msg.gotTrackDecoder
         , onCustomEvent "video" (Msg.UserUpdated user.id) Msg.videoStateDecoder
@@ -61,14 +80,9 @@ viewToString viewState =
             "playing"
 
 
-userBrowser : Model.WebRtcSupport -> String
-userBrowser support =
-    case support of
-        Model.NoWebRtcSupport ->
-            "unknown"
-
-        Model.SupportsWebRtc browser _ ->
-            browser
+userBrowser : Model.Browser -> String
+userBrowser browser =
+    browser.name
 
 
 onCustomEvent : String -> (m -> Msg) -> Json.Decode.Decoder m -> H.Attribute Msg

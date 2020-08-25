@@ -22,8 +22,7 @@ update msg model =
             else
                 -- another user has joined
                 ( { model | users = Dict.insert u.id (initUser u) model.users }
-                , -- initiate the PeerConnection to her
-                  Ports.Out.createSdpOfferFor u.id u.pc model.localStream
+                , Cmd.none
                 )
 
         Msg.UserLeft userId ->
@@ -33,14 +32,19 @@ update msg model =
 
                 Just user ->
                     ( { model | users = Dict.remove userId model.users }
-                    , Ports.Out.closeRemotePeerConnection user.pc
+                    , case user of
+                        Model.User { pc } ->
+                            Ports.Out.closeRemotePeerConnection pc
+
+                        _ ->
+                            Cmd.none
                     )
 
         Msg.UserUpdated userId event ->
             case Dict.get userId model.users of
                 Just before ->
-                    activeUpdateUser model.localStream event before
-                        |> Tuple.mapFirst (\user -> Dict.insert user.id user model.users)
+                    updateUser model.userId model.localStream event before
+                        |> Tuple.mapFirst (\user -> Dict.insert userId user model.users)
                         |> Tuple.mapFirst (\users -> { model | users = users })
 
                 Nothing ->
@@ -51,15 +55,68 @@ update msg model =
             ( model, Cmd.none )
 
 
-activeUpdateUser : Model.Stream -> Msg.Updated -> User -> ( User, Cmd msg )
-activeUpdateUser localStream msg user =
+updateUser : Msg.UserId -> Model.Stream -> Msg.Updated -> User -> ( User, Cmd msg )
+updateUser ownId localStream msg user =
+    case user of
+        Model.UserWithoutWebRtc ->
+            ( user, Cmd.none )
+
+        Model.UserWithoutPeerConnection peer ->
+            updatePendingUser ownId localStream msg peer
+
+        Model.User peer ->
+            updateActiveUser localStream msg peer
+                |> Tuple.mapFirst Model.User
+
+
+updatePendingUser : Msg.UserId -> Model.Stream -> Msg.Updated -> Model.PendingUser -> ( User, Cmd msg )
+updatePendingUser ownId localStream msg user =
     case msg of
+        Msg.NewPeerConnection pc ->
+            ( { id = user.id
+              , pc = pc
+              , browser = user.browser
+              , audioTrack = Model.NoTrack
+              , videoTrack = Model.NoTrack
+              , view = Model.Initial
+              }
+                |> Model.User
+            , if user.remoteSdpOffer == Nothing && ownId < user.id then
+                Ports.Out.createSdpOfferFor user.id pc localStream
+
+              else
+                user.remoteSdpOffer
+                    |> Maybe.map
+                        (Ports.Out.createSdpAnswerFor user.id pc localStream (List.reverse user.remoteIceCandidates))
+                    |> Maybe.withDefault Cmd.none
+            )
+
+        Msg.RemoteSdpOffer sdp ->
+            ( Model.UserWithoutPeerConnection { user | remoteSdpOffer = Just sdp }, Cmd.none )
+
+        Msg.RemoteIceCandidate candidate ->
+            ( { user | remoteIceCandidates = candidate :: user.remoteIceCandidates }
+                |> Model.UserWithoutPeerConnection
+            , Cmd.none
+            )
+
+        _ ->
+            ( Model.UserWithoutPeerConnection user, Cmd.none )
+
+
+updateActiveUser : Model.Stream -> Msg.Updated -> Model.Peer -> ( Model.Peer, Cmd msg )
+updateActiveUser localStream msg user =
+    case msg of
+        Msg.NewPeerConnection pc ->
+            -- TODO close old pc and set new one
+            ( user, Cmd.none )
+
         Msg.LocalSdpOffer _ ->
             ( user, Cmd.none )
 
         Msg.RemoteSdpOffer sdp ->
             ( user
-            , Ports.Out.createSdpAnswerFor sdp user.id user.pc localStream
+            , Ports.Out.createSdpAnswerFor user.id user.pc localStream [] sdp
             )
 
         Msg.LocalSdpAnswer _ ->

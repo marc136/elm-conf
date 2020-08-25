@@ -1,16 +1,19 @@
 module Active.Model exposing
-    ( MediaTrack(..)
+    ( Browser
+    , MediaTrack(..)
     , Model
+    , Peer
     , PeerConnection
+    , PendingUser
     , RoomId
     , Stream
-    , User
+    , User(..)
     , UserId
     , View(..)
-    , WebRtcSupport(..)
     , WebSocket
     )
 
+import Active.Messages as Msg
 import Dict exposing (Dict)
 import Json.Decode as Json
 
@@ -36,9 +39,23 @@ type alias UserId =
     Int
 
 
-type alias User =
+type User
+    = UserWithoutWebRtc
+    | UserWithoutPeerConnection PendingUser
+    | User Peer
+
+
+type alias PendingUser =
     { id : UserId
-    , webRtcSupport : WebRtcSupport
+    , browser : Browser
+    , remoteSdpOffer : Maybe Msg.Sdp
+    , remoteIceCandidates : List Msg.IceCandidate
+    }
+
+
+type alias Peer =
+    { id : UserId
+    , browser : Browser
     , pc : PeerConnection
     , audioTrack : MediaTrack
     , videoTrack : MediaTrack
@@ -46,9 +63,10 @@ type alias User =
     }
 
 
-type WebRtcSupport
-    = NoWebRtcSupport
-    | SupportsWebRtc String Int
+type alias Browser =
+    { name : String
+    , version : Int
+    }
 
 
 type alias PeerConnection =

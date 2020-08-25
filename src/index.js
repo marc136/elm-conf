@@ -37,14 +37,6 @@ function toElm(json) {
   elm.ports.incoming.send(json);
 }
 
-// See https://developer.mozilla.org/de/docs/Web/API/RTCConfiguration
-const pcConfig = {
-  iceServers: [
-    { urls: ['stun:stun.services.mozilla.com'] },
-    // { urls: ['stun:stun.l.google.com:19302'] },
-  ]
-};
-
 elm.ports.out.subscribe(async msg => {
   console.debug('got from elm', msg);
 
@@ -72,9 +64,14 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'createSdpAnswer':
-      requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
         // wait until the webrtc-media element is rendered
-        receiveSdpOffer(msg.offer, msg.from, msg.pc, msg.localStream, msg.ws);
+        await receiveSdpOffer(msg.offer, msg.from, msg.pc, msg.localStream, msg.ws);
+        if (Array.isArray(msg.iceCandidates)) {
+          for (const candidate of msg.iceCandidates) {
+            await addRemoteIceCandidate(msg.pc, candidate);
+          }
+        }
       });
       break;
 
@@ -89,13 +86,7 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'setRemoteIceCandidate':
-      msg.pc.addIceCandidate(msg.candidate)
-        .then(() => {
-          console.debug('Successfully set remote ICE candidate', msg);
-        })
-        .catch(ex => {
-          console.error('Could not set remote ICE candidate', ex, msg);
-        })
+      addRemoteIceCandidate(msg.pc, msg.candidate);
       break;
 
     default:
@@ -145,24 +136,11 @@ async function receiveSdpOffer(sdp, from, pc, localStream) {
   pc.onicecandidate = propagateLocalIceCandidates(from);
 
   await pc.setRemoteDescription(sdp);
-
-  async function createAndPropagateAnswer() {
-    console.debug('createAndPropagateAnswer', { for: from })
-    addLocalStream(pc, localStream);
-    const answer = await pc.createAnswer()
-    toElm({ type: 'answer', for: from, sdp: answer.sdp });
-    await pc.setLocalDescription(answer);
-    toServer({ type: 'answer', for: from, sdp: answer.sdp });
-  }
-
-  if (pc.createAndPropagateAnswer) {
-    console.debug('Will invoke createAndPropagateAnswer because the webrtc-media element is connected')
-    delete pc.createAndPropagateAnswer;
-    await createAndPropagateAnswer()
-  } else {
-    console.debug('Will store createAndPropagateAnswer because the webrtc-media element is not connected')
-    pc.createAndPropagateAnswer = createAndPropagateAnswer;
-  }
+  addLocalStream(pc, localStream);
+  const answer = await pc.createAnswer()
+  await pc.setLocalDescription(answer);
+  toElm({ type: 'answer', for: from, sdp: answer.sdp });
+  toServer({ type: 'answer', for: from, sdp: answer.sdp });
 }
 
 /**
@@ -189,6 +167,20 @@ function addLocalStream(pc, stream) {
   }
 }
 
+/**
+ * @param {RTCPeerConnection} pc
+ * @param {RTCIceCandidate} candidate
+ */
+function addRemoteIceCandidate(pc, candidate) {
+  return pc.addIceCandidate(candidate)
+    .then(() => {
+      console.debug('Successfully set remote ICE candidate', candidate);
+    })
+    .catch(ex => {
+      console.error('Could not set remote ICE candidate', { pc, candidate, ex });
+    })
+}
+
 function connectToRoom(roomId) {
   const address = `ws://${location.hostname}:8443/join/${roomId}`;
   console.log('Will connect to', address);
@@ -208,7 +200,7 @@ function connectToRoom(roomId) {
     const msg = getMsg(evt.data);
     console.debug('got msg', msg);
     msg.socket = ws;
-    handleServerMessage(msg);
+    toElm(msg);
   };
 
   ws.onclose = evt => {
@@ -227,27 +219,6 @@ function getMsg(data) {
   }
 }
 
-function handleServerMessage(msg) {
-  switch (msg.type) {
-    case 'join-success':
-      msg.users.forEach(user => {
-        createPeerConnectionOnUser(user);
-      });
-      break;
-
-    case 'user':
-      createPeerConnectionOnUser(msg.user);
-      break;
-  }
-
-  toElm(msg);
-}
-
-function createPeerConnectionOnUser(user) {
-  user.pc = new RTCPeerConnection(pcConfig);
-  addDevEventHandlers(user.userId, user.pc);
-}
-
 /**
  * @param {RTCPeerConnection} pc
  */
@@ -262,33 +233,3 @@ function closePeerConnection(pc) {
 // unregister() to register() below. Note this comes with some pitfalls.
 // Learn more about service workers: https://bit.ly/CRA-PWA
 serviceWorker.unregister();
-
-
-/**
- *
- * @param {RTCPeerConnection} pc
- */
-function addDevEventHandlers(userId, pc) {
-  // const node = document.querySelector(`webrtc-media#user-${userId}`);
-  // console.warn('webrtc-media user node', node);
-
-  pc.oniceconnectionstatechange = () => {
-    console.log(`dev user-${userId} oniceconnectionstatechange`, pc.iceConnectionState);
-  };
-
-  pc.onsignalingtatechange = () => {
-    console.log(`dev user-${userId} onsignalingtatechange`, pc.signalingState);
-  };
-
-  pc.onconnectionstatechange = () => {
-    console.log(`dev user-${userId} onconnectionstatechange`, pc.connectionState);
-  };
-
-  pc.ontrack = ({ track, streams }) => {
-    // Buggy behavior in Chrome 83:
-    // `onConnectedCallback` is not triggered inside a background tab and the tracks will not be attached.
-    // This can e.g. be fixed by only creating a new peer connection when the page is visible
-    // https://developer.mozilla.org/de/docs/Web/API/Page_Visibility_API
-    console.warn(`user-${userId} pc.ontrack was triggered before the custom element was connected`, track);
-  };
-}

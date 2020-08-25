@@ -9,6 +9,7 @@ module Active.Messages exposing
     , UserId
     , VideoState(..)
     , gotTrackDecoder
+    , peerConnectionDecoder
     , portDecoder
     , userDecoder
     , videoStateDecoder
@@ -31,20 +32,24 @@ type Msg
 type alias User =
     { id : UserId
     , supportsWebRtc : Bool
-    , pc : Json.Value
     , browser : String
     , browserVersion : Int
     }
 
 
 type Updated
-    = LocalSdpOffer Sdp
+    = NewPeerConnection RtcPeerConnection
+    | LocalSdpOffer Sdp
     | RemoteSdpOffer Sdp
     | LocalSdpAnswer Sdp
     | RemoteSdpAnswer Sdp
     | RemoteIceCandidate IceCandidate
     | GotTrack MediaKind MediaTrack
     | VideoEvent VideoState
+
+
+type alias RtcPeerConnection =
+    Json.Value
 
 
 type alias Sdp =
@@ -123,12 +128,16 @@ portDecoder type_ =
 
 userDecoder : Decoder User
 userDecoder =
-    Json.map5 User
+    Json.map4 User
         (Json.field "userId" Json.int)
         (Json.field "supportsWebRtc" Json.bool)
-        (Json.field "pc" Json.value)
         (Json.field "browser" Json.string)
         (Json.field "browserVersion" Json.int)
+
+
+peerConnectionDecoder : Json.Decoder Updated
+peerConnectionDecoder =
+    Json.map NewPeerConnection Json.value
 
 
 gotTrackDecoder : Json.Decoder Updated

@@ -12,24 +12,22 @@ init { userId, users, socket } room stream =
     , localStream = stream
     , userId = userId
     , users =
-        List.map initUser users
-            |> List.map (\u -> ( u.id, u ))
+        users
+            |> List.map (\u -> ( u.id, initUser u ))
             |> Dict.fromList
     , socket = socket
     }
 
 
 initUser : Msg.User -> Model.User
-initUser { id, supportsWebRtc, pc, browser, browserVersion } =
-    { id = id
-    , webRtcSupport =
-        if supportsWebRtc then
-            Model.SupportsWebRtc browser browserVersion
+initUser { id, supportsWebRtc, browser, browserVersion } =
+    if not supportsWebRtc then
+        Model.UserWithoutWebRtc
 
-        else
-            Model.NoWebRtcSupport
-    , pc = pc
-    , audioTrack = Model.NoTrack
-    , videoTrack = Model.NoTrack
-    , view = Model.Initial
-    }
+    else
+        { id = id
+        , browser = Model.Browser browser browserVersion
+        , remoteSdpOffer = Nothing
+        , remoteIceCandidates = []
+        }
+            |> Model.UserWithoutPeerConnection
