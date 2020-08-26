@@ -62,6 +62,7 @@ export default class WebRtcMedia extends HTMLElement {
     this.appendChild(this.infoElement);
     requestAnimationFrame(() => { peerConnectionInfo(this, this.infoElement); });
 
+    // TODO don't set this immediately
     this.pc = new RTCPeerConnection(pcConfig);
     addDevEventHandlers(this.id, this.pc);
 

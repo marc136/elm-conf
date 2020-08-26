@@ -1,0 +1,17 @@
+#+STARTUP: showeverything
+
+* TODOS [3/6]
+  - [X] Display an animation when connecting to another peer
+  - [ ] If getUserMedia fails, allow retry
+  - [X] Display kbps
+  - [X] Use webrtc-media custom element to create the user's peer connection
+  - [ ] Render UserWithoutWebRtc
+  - [ ] Don't set WebRtcMedia.pc from js, use elm instead
+
+* Ideas
+  - Allow user to trigger a reconnection attempt after connection negotiation failure
+  - Allow user to change devices inside session
+    - polit-impolite caller pattern or
+    - caller-callee pattern
+  - Allow user to take a still image of herself
+    - transmit still image to other users and display that during connection initiation
