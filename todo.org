@@ -1,11 +1,11 @@
 #+STARTUP: showeverything
 
-* TODOS [3/6]
+* TODOS [4/6]
   - [X] Display an animation when connecting to another peer
   - [ ] If getUserMedia fails, allow retry
   - [X] Display kbps
   - [X] Use webrtc-media custom element to create the user's peer connection
-  - [ ] Render UserWithoutWebRtc
+  - [X] Render UserWithoutWebRtc
   - [ ] Don't set WebRtcMedia.pc from js, use elm instead
 
 * Ideas

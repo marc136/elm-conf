@@ -32,7 +32,8 @@ keyedOtherUser ( userId, user ) =
     ( String.fromInt userId
     , case user of
         Model.UserWithoutWebRtc ->
-            Debug.todo "Cannot render user without WebRTC"
+            H.div [ HA.class "user-box" ]
+                [ H.text "Cannot render user without WebRTC" ]
 
         Model.UserWithoutPeerConnection peer ->
             viewPending peer
