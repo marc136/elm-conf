@@ -174,8 +174,7 @@ button.circle:focus {
   padding: 5px 10px;
 }
 
-.conf self-video,
-.conf webrtc-media {
+.conf .user-box {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -184,8 +183,7 @@ button.circle:focus {
   z-index: 1;
 }
 
-.conf self-video,
-.conf webrtc-media {
+.conf .user-box {
   width: var(--box-width);
   height: var(--box-height);
 }
@@ -216,8 +214,7 @@ button.circle:focus {
   animation: none;
 }
 
-.conf self-video > video,
-.conf webrtc-media > video {
+.conf .user-box > video {
   max-height: 100%;
   flex: 1 1 auto;
 }

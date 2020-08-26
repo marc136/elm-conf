@@ -17,7 +17,9 @@ view model =
     , [ ( "header", header )
       , ( "self-video"
         , H.node "self-video"
-            [ HA.property "src" model.localStream ]
+            [ HA.class "user-box"
+            , HA.property "src" model.localStream
+            ]
             []
         )
       ]
@@ -44,6 +46,7 @@ viewPending : Model.PendingUser -> Html Msg
 viewPending user =
     H.node "webrtc-media"
         [ HA.id <| "user-" ++ String.fromInt user.id
+        , HA.class "user-box"
         , HA.attribute "view" <| viewToString Model.Initial
         , HA.property "browser" <| Json.Encode.string <| userBrowser user.browser
         , onCustomEvent "new-peer-connection" (Msg.UserUpdated user.id) Msg.peerConnectionDecoder
@@ -55,6 +58,7 @@ viewOtherUser : Model.Peer -> Html Msg
 viewOtherUser user =
     H.node "webrtc-media"
         [ HA.id <| "user-" ++ String.fromInt user.id
+        , HA.class "user-box"
         , HA.classList
             [ ( "yellow", user.view == Model.Stalled ) ]
         , HA.class <| "video-" ++ viewToString user.view
