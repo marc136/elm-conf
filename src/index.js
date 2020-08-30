@@ -64,15 +64,12 @@ elm.ports.out.subscribe(async msg => {
       break;
 
     case 'createSdpAnswer':
-      requestAnimationFrame(async () => {
-        // wait until the webrtc-media element is rendered
-        await receiveSdpOffer(msg.offer, msg.from, msg.pc, msg.localStream, msg.ws);
-        if (Array.isArray(msg.iceCandidates)) {
-          for (const candidate of msg.iceCandidates) {
-            await addRemoteIceCandidate(msg.pc, candidate);
-          }
+      await receiveSdpOffer(msg.offer, msg.from, msg.pc, msg.localStream, msg.ws);
+      if (Array.isArray(msg.iceCandidates)) {
+        for (const candidate of msg.iceCandidates) {
+          await addRemoteIceCandidate(msg.pc, candidate);
         }
-      });
+      }
       break;
 
     case 'setRemoteSdpAnswer':
