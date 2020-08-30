@@ -49,6 +49,7 @@ viewPending user =
         [ HA.id <| "user-" ++ String.fromInt user.id
         , HA.class "user-box"
         , HA.attribute "view" <| viewToString Model.Initial
+        , HA.attribute "action" "create-peer-connection"
         , HA.property "browser" <| Json.Encode.string <| userBrowser user.browser
         , onCustomEvent "new-peer-connection" (Msg.UserUpdated user.id) Msg.peerConnectionDecoder
         ]
@@ -68,6 +69,7 @@ viewOtherUser user =
         , HA.property "pc" user.pc
         , onCustomEvent "track" (Msg.UserUpdated user.id) Msg.gotTrackDecoder
         , onCustomEvent "video" (Msg.UserUpdated user.id) Msg.videoStateDecoder
+        , onCustomEvent "new-peer-connection" (Msg.UserUpdated user.id) Msg.peerConnectionDecoder
         ]
         []
 

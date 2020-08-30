@@ -66,38 +66,40 @@ export default class WebRtcMedia extends HTMLElement {
     this.appendChild(this.infoElement);
     requestAnimationFrame(() => { peerConnectionInfo(this, this.infoElement); });
 
-    // TODO don't set this immediately
-    this.pc = new RTCPeerConnection(pcConfig);
-    addDevEventHandlers(this.id, this.pc);
-
-    this._addPeerConnectionEventListeners();
-
-    this._emitEvent('new-peer-connection', this.pc);
-  }
-
-  attributeChangedCallback(name, oldValue, newValue) {
-    console.log(`attributeChanged "${name}" for ${this.id}`, { oldValue, newValue });
+    this._createPeerConnection();
   }
 
   static get observedAttributes() {
-    return ['has-media', 'has-video', 'has-audio', 'view'];
+    return ['action', 'view'];
   }
 
-  _addPeerConnectionEventListeners() {
-    const receivers = this.pc.getReceivers();
-    if (receivers.length > 0) {
-      // the ontrack event was already emitted and we missed it. We will trigger _playTrack directly
-      // this happens e.g. if the page was in the background
-      receivers.forEach(receiver => {
-        console.log(`faking ontrack for ${this.id}`, this);
-        this._playTrack(receiver.track);
-      });
-    } else {
-      this.pc.ontrack = ({ track, streams }) => {
-        console.log(`ontrack for ${this.id}`, track, this);
-        this._playTrack(track);
-      };
+  attributeChangedCallback(name, oldValue, newValue) {
+    console.debug(`attributeChanged "${name}" for ${this.id}`, { oldValue, newValue });
+    switch (name) {
+      case 'action':
+        switch (newValue) {
+          case 'create-peer-connection':
+            if (this.isConnected) {
+              this._createPeerConnection();
+            } else {
+              console.debug(`Did not create a peer connection for ${this.id} because the element is not connected`);
+            }
+            break;
+        }
+        break;
     }
+  }
+
+  _createPeerConnection() {
+    console.error('creating peer connection', this.id)
+    const pc = new RTCPeerConnection(pcConfig);
+    console.warn('after create, remoteDescription is', pc.remoteDescription)
+    addDevEventHandlers(this.id, pc);
+    pc.ontrack = ({ track, streams }) => {
+      console.log(`ontrack for ${this.id}`, track, this);
+      this._playTrack(track);
+    };
+    this._emitEvent('new-peer-connection', pc);
   }
 
   /**
