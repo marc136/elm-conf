@@ -180,6 +180,7 @@ button.circle:focus {
   flex-direction: column;
   overflow: hidden;
   background: fuchsia;
+  background: var(--primary);
   z-index: 1;
 }
 
