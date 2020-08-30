@@ -150,13 +150,15 @@ customElements.define('webrtc-media', WebRtcMedia);
  */
 async function peerConnectionInfo(webrtc, info) {
   try {
-    if (webrtc.pc.connectionState !== 'connected') {
-      // It would be better to listen to the individual events instead
-      // https://www.w3.org/TR/2019/CR-webrtc-20191213/#event-summary
-      stats.init(webrtc.pc, info);
-    } else {
-      // return stats.fullReport(webrtc.pc, el);
-      await stats.connected(webrtc.pc, webrtc.stats, info);
+    if (webrtc.pc) {
+      if (webrtc.pc.connectionState !== 'connected') {
+        // It would be better to listen to the individual events instead
+        // https://www.w3.org/TR/2019/CR-webrtc-20191213/#event-summary
+        stats.init(webrtc.pc, info);
+      } else {
+        // return stats.fullReport(webrtc.pc, el);
+        await stats.connected(webrtc.pc, webrtc.stats, info);
+      }
     }
     setTimeout(() => { peerConnectionInfo(webrtc, info); }, 1000);
   } catch (ex) {
