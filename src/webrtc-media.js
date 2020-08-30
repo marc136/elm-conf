@@ -46,6 +46,10 @@ export default class WebRtcMedia extends HTMLElement {
   }
 
   connectedCallback() {
+    if (!this.isConnected) {
+      console.warn('WebRtcMedia connectedCallback/1 was executed after it was removed from DOM');
+      return;
+    }
     console.log('WebRtcMedia connected')
     // attach a shadow root so nobody can mess with your styles
     // const shadow = this.attachShadow({ mode: "open" });
