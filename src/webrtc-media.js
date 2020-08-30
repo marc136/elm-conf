@@ -132,11 +132,13 @@ export default class WebRtcMedia extends HTMLElement {
   }
 
   _emitEvent(name, detail = null) {
-    return this.dispatchEvent(new CustomEvent(name, {
-      bubbles: true,
-      composed: true, // allows to break out of the Shadow DOM
-      detail
-    }));
+    requestAnimationFrame(() => {
+       this.dispatchEvent(new CustomEvent(name, {
+        bubbles: true,
+        composed: true, // allows to break out of the Shadow DOM
+        detail
+      }));
+    });
   }
 }
 customElements.define('webrtc-media', WebRtcMedia);
