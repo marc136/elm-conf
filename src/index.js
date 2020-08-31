@@ -13,6 +13,9 @@ const webRtcSupport = {
 };
 const supportsWebRtc = webRtcSupport.peerConnection && webRtcSupport.getUserMedia || false;
 
+const wsServer = process.env.ELM_APP_WS_SERVER || `wss://${location.hostname}:${location.port}`;
+console.log('WebSocket server address: ', wsServer);
+
 // TODO remove state.ws
 const state = {
   ws: undefined // TODO remove this
@@ -183,7 +186,7 @@ function addRemoteIceCandidate(pc, candidate) {
 }
 
 function connectToRoom(roomId) {
-  const address = `wss://${location.hostname}:${location.port}/join/${roomId}`;
+  const address = `${wsServer}/join/${roomId}`;
   console.log('Will connect to', address);
   const ws = new WebSocket(address);
   ws.onopen = evt => {
