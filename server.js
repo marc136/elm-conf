@@ -2,6 +2,8 @@
 const uWS = require('uWebSockets.js');
 const port = 8443;
 
+const startTime = Date.now()
+
 function ts() { return new Date().toISOString() }
 
 class Room {
@@ -118,6 +120,14 @@ const app = uWS./*SSL*/App({
             app.publish(ws.roomChannel, JSON.stringify(leave));
         }
     }
+}).any('/alive', (res, req) => {
+    const now = Date.now();
+    const uptimeInHours = Math.floor((now - startTime) / 3_600_000);
+    const uptimeInDays = Math.floor(uptimeInHours / 24);
+    const alive = { start: startTime, now, uptimeInHours, uptimeInDays };
+    res.writeStatus('200 OK');
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(alive));
 }).any('/*', (res, req) => {
     res.end('Nothing to see here!');
 }).listen(port, (token) => {
