@@ -1,0 +1,28 @@
+(websocket-definition) {
+  @websockets {
+    header Connection *Upgrade*
+    header Upgrade    websocket
+  }
+}
+
+localhost:8080 {
+  encode zstd gzip
+  import websocket-definition
+
+  reverse_proxy @websockets 127.0.0.1:8443
+
+  route /ws/* {
+    uri strip_prefix /ws
+    reverse_proxy 127.0.0.1:8443
+    reverse_proxy @websockets 127.0.0.1:8443
+  }
+
+  # when using `elm-app start`
+  #reverse_proxy 127.0.0.1:3000
+
+  # when using `npm run build`
+  file_server {
+    root build
+    browse
+  }
+}
