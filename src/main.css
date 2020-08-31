@@ -149,6 +149,7 @@ button.circle:focus {
   justify-content: center;
   align-items: center;
   --box-height: 40vh;
+  --box-height: min(40vh, calc(90vw / var(--video-ratio)));
   --box-width: calc(var(--box-height) * var(--video-ratio));
   gap: calc(var(--box-height) / 20); /* only in Firefox */
 }
@@ -174,6 +175,20 @@ button.circle:focus {
   background: var(--primary);
   color: white;
   padding: 5px 10px;
+}
+
+/* aspect ratio should be the same as the --video-ratio */
+@media (min-aspect-ratio: 4/3) {
+  .conf {
+    flex-direction: row;
+    --box-width: 40vw;
+    --box-width: min(40vw, calc(90vh * var(--video-ratio)));
+    --box-height: calc(var(--box-width) / var(--video-ratio));
+  }
+
+  .conf>.header::before {
+    content: 'aspect-ratio >= 4/3';
+  }
 }
 
 .conf .user-box {
@@ -237,25 +252,8 @@ button.circle:focus {
 
 .conf-1 {
   --box-width: 90vw;
+  --box-width: min(90vw, calc(90vh * var(--video-ratio)));
   --box-height: calc(var(--box-width) / var(--video-ratio));
-}
-
-/* aspect ratio should be the same as the --video-ratio */
-@media (min-aspect-ratio: 4/3) {
-  .conf {
-    flex-direction: row;
-    --box-width: 40vw;
-    --box-height: calc(var(--box-width) / var(--video-ratio));
-  }
-
-  .conf>.header::before {
-    content: 'aspect-ratio >= 4/3';
-  }
-
-  .conf-1 {
-    --box-width: 90vw;
-    --box-height: calc(var(--box-width) / var(--video-ratio));
-  }
 }
 
 @keyframes rotation {
