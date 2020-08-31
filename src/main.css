@@ -171,6 +171,8 @@ button.circle:focus {
   top: 10px;
   left: 10px;
   background: fuchsia;
+  background: var(--primary);
+  color: white;
   padding: 5px 10px;
 }
 
