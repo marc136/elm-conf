@@ -1,13 +1,13 @@
 #+STARTUP: showeverything
 
-* TODOS [5/7]
+* TODOS [6/7]
   - [X] Display an animation when connecting to another peer
   - [ ] If getUserMedia fails, allow retry
   - [X] Display kbps
   - [X] Use webrtc-media custom element to create the user's peer connection
   - [X] Render UserWithoutWebRtc
   - [X] Don't set WebRtcMedia.pc from js, use elm instead
-  - [ ] Decide if server.js should serve the elm app
+  - [X] Decide if server.js should serve the elm app -> no
         See https://github.com/uNetworking/uWebSockets.js/issues/110
 
 * Ideas

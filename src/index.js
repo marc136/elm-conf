@@ -183,7 +183,7 @@ function addRemoteIceCandidate(pc, candidate) {
 }
 
 function connectToRoom(roomId) {
-  const address = `ws://${location.hostname}:8443/join/${roomId}`;
+  const address = `wss://${location.hostname}:${location.port}/join/${roomId}`;
   console.log('Will connect to', address);
   const ws = new WebSocket(address);
   ws.onopen = evt => {
