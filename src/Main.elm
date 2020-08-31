@@ -10,6 +10,7 @@ import Html.Events exposing (onClick)
 import Icons
 import Json.Decode as Json
 import Ports.In
+import Ports.Log as Log
 import Ports.Out
 
 
@@ -122,18 +123,10 @@ update msg model =
                 |> Tuple.mapFirst Active
 
         ( InvalidPortMsg err, _ ) ->
-            let
-                _ =
-                    Debug.log "json decoder error" err
-            in
-            ( model, Cmd.none )
+            ( model, Log.warn <| "InvalidPortMsg: " ++ Json.errorToString err )
 
-        other ->
-            let
-                _ =
-                    Debug.log "ignore" other
-            in
-            ( model, Cmd.none )
+        _ ->
+            ( model, Log.warn "Received an unsupported event, check elm debugger" )
 
 
 

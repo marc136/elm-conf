@@ -37,6 +37,10 @@ function toElm(json) {
   elm.ports.incoming.send(json);
 }
 
+elm.ports.logs.subscribe(({ level, message}) => {
+  console[level](message);
+});
+
 elm.ports.out.subscribe(async msg => {
   console.debug('got from elm', msg);
 
