@@ -16,6 +16,7 @@ init { userId, users, socket } room stream =
             |> List.map (\u -> ( u.id, initUser u ))
             |> Dict.fromList
     , socket = socket
+    , debug = False
     }
 
 

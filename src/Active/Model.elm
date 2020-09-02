@@ -24,6 +24,7 @@ type alias Model =
     , userId : UserId
     , users : Dict UserId User
     , socket : WebSocket
+    , debug : Bool
     }
 
 

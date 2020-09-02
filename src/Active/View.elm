@@ -13,7 +13,9 @@ import Json.Encode
 
 view : Model -> KeyedHtmlList Msg
 view model =
-    ( [ HA.class <| "conf conf-" ++ String.fromInt (Dict.size model.users + 1) ]
+    ( [ HA.class <| "conf conf-" ++ String.fromInt (Dict.size model.users + 1)
+      , HA.classList [ ( "debug", model.debug ) ]
+      ]
     , [ ( "header", header )
       , ( "self-video"
         , H.node "self-video"
