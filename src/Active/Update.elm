@@ -10,6 +10,9 @@ import Ports.Out
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
+        Msg.SetDebug value ->
+            ( { model | debug = value }, Cmd.none )
+
         Msg.UserJoined u ->
             if u.id == model.userId then
                 -- for now the server will not give us new data about oneself

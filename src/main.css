@@ -159,6 +159,7 @@ button.circle:focus {
   padding: 10px 15px;
   display: flex;
   justify-content: center;
+  align-items: center;
   z-index: 5;
   background: rgba(255, 255, 255, 0.3);
 }
@@ -188,6 +189,13 @@ button.circle:focus {
 
 .conf.debug>.header::before {
   display: block;
+}
+
+.conf>.header .debug-btn {
+  position: absolute;
+  right: 15px;
+  display: flex;
+  align-items: center;
 }
 
 .conf {

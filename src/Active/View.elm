@@ -16,7 +16,7 @@ view model =
     ( [ HA.class <| "conf conf-" ++ String.fromInt (Dict.size model.users + 1)
       , HA.classList [ ( "debug", model.debug ) ]
       ]
-    , [ ( "header", header )
+    , [ ( "header", header model.debug )
       , ( "self-video"
         , H.node "self-video"
             [ HA.class "user-box"
@@ -100,8 +100,17 @@ onCustomEvent event toMsg decoder =
         Json.Decode.map toMsg (Json.Decode.field "detail" decoder)
 
 
-header : Html Msg
-header =
+header : Bool -> Html Msg
+header debug =
     H.div [ HA.class "header" ]
         [ btn [ HE.onClick Msg.Leave ] [ H.text "leave" ]
+        , H.label [ HA.class "debug-btn" ]
+            [ H.input
+                [ HA.type_ "checkbox"
+                , HA.checked debug
+                , HE.onCheck Msg.SetDebug
+                ]
+                []
+            , H.text "debug"
+            ]
         ]

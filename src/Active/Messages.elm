@@ -23,7 +23,8 @@ type alias UserId =
 
 
 type Msg
-    = UserJoined User
+    = SetDebug Bool
+    | UserJoined User
     | UserLeft UserId
     | UserUpdated UserId Updated
     | Leave
