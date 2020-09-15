@@ -37,10 +37,7 @@ keyedOtherUser ( userId, user ) =
             H.div [ HA.class "user-box" ]
                 [ H.text "Cannot render user without WebRTC" ]
 
-        Model.UserIsCallee peer ->
-            viewPending peer
-
-        Model.UserIsCaller peer ->
+        Model.UserWithoutPeerConnection peer ->
             viewPending peer
 
         Model.User peer ->
@@ -48,7 +45,7 @@ keyedOtherUser ( userId, user ) =
     )
 
 
-viewPending : { u | id : Model.UserId, browser : Model.Browser } -> Html Msg
+viewPending : Model.PendingUser -> Html Msg
 viewPending user =
     H.node "webrtc-media"
         [ HA.id <| "user-" ++ String.fromInt user.id

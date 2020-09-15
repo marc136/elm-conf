@@ -31,4 +31,4 @@ initUser { id, supportsWebRtc, browser, browserVersion } =
         , remoteSdpOffer = Nothing
         , remoteIceCandidates = []
         }
-            |> Model.UserCallsMe
+            |> Model.UserWithoutPeerConnection

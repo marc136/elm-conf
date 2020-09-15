@@ -64,10 +64,7 @@ updateUser ownId localStream msg user =
         Model.UserWithoutWebRtc ->
             ( user, Cmd.none )
 
-        Model.UserIsCallee peer ->
-            updatePendingUser ownId localStream msg peer
-
-        Model.UserIsCaller peer ->
+        Model.UserWithoutPeerConnection peer ->
             updatePendingUser ownId localStream msg peer
 
         Model.User peer ->

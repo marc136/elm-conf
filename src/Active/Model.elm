@@ -1,11 +1,10 @@
 module Active.Model exposing
     ( Browser
-    , Callee
-    , Caller
     , MediaTrack(..)
     , Model
     , Peer
     , PeerConnection
+    , PendingUser
     , RoomId
     , Stream
     , User(..)
@@ -43,18 +42,11 @@ type alias UserId =
 
 type User
     = UserWithoutWebRtc
-    | UserIsCallee Callee
-    | UserIsCaller Caller
+    | UserWithoutPeerConnection PendingUser
     | User Peer
 
 
-type alias Callee =
-    { id : UserId
-    , browser : Browser
-    }
-
-
-type alias Caller =
+type alias PendingUser =
     { id : UserId
     , browser : Browser
     , remoteSdpOffer : Maybe Msg.Sdp
