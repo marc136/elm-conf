@@ -79,7 +79,7 @@ init flags =
 type Msg
     = Join
     | AbortJoining
-    | GotLocalStream Stream
+    | GotLocalStream LocalStream
     | JoinResponse Ports.In.JoinSuccess
     | ActiveMsg ActiveMsg.Msg
     | InvalidPortMsg Json.Error
@@ -94,7 +94,7 @@ update msg model =
             )
 
         ( GotLocalStream value, InitialMediaSelection a ) ->
-            ( InitialMediaSelection { a | localStream = LocalStream value }, Cmd.none )
+            ( InitialMediaSelection { a | localStream = value }, Cmd.none )
 
         ( Join, InitialMediaSelection { room, localStream } ) ->
             case localStream of
@@ -185,9 +185,34 @@ viewInitialMediaSelection : InitialMediaSelectionData -> Html Msg
 viewInitialMediaSelection { localStream } =
     div [ class "modal" ]
         [ h1 [] [ text "Camera selection" ]
-        , node "camera-select" [ onGotStream ] []
+        , cameraSelect
         , btn [ onClick Join, disabled <| not <| hasStream localStream ]
             [ text "Looks good, I want to join" ]
+        ]
+
+
+cameraSelect : Html Msg
+cameraSelect =
+    node "camera-select"
+        [ onCustomEvent "got-stream" GotLocalStream gotStreamDecoder ]
+        []
+
+
+onCustomEvent : String -> (a -> msg) -> Json.Decoder a -> Html.Attribute msg
+onCustomEvent event toMsg decoder =
+    Html.Events.on event <| Json.map toMsg <| detailDecoder decoder
+
+
+detailDecoder : Json.Decoder a -> Json.Decoder a
+detailDecoder decoder =
+    Json.field "detail" decoder
+
+
+gotStreamDecoder : Json.Decoder LocalStream
+gotStreamDecoder =
+    Json.oneOf
+        [ Json.map LocalStream (Json.field "stream" Json.value)
+        , Json.map Failed <| Json.field "error" Json.string
         ]
 
 
@@ -213,21 +238,6 @@ viewJoiningRoom { localStream } =
       , ( "abort", btn [ onClick AbortJoining ] [ text "Abort" ] )
       ]
     )
-
-
-onGotStream : Attribute Msg
-onGotStream =
-    Html.Events.on "got-stream" (Json.map GotLocalStream gotStreamDecoder)
-
-
-gotStreamDecoder : Json.Decoder Stream
-gotStreamDecoder =
-    detailDecoder (Json.field "stream" Json.value)
-
-
-detailDecoder : Json.Decoder a -> Json.Decoder a
-detailDecoder decoder =
-    Json.field "detail" decoder
 
 
 

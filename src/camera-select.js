@@ -94,7 +94,9 @@ export default class CameraSelect extends HTMLElement {
     catch (reason) {
       this.videoElement.classList.add('hidden');
       console.error('getUserMedia failed', reason);
-      this.textElement.textContent = "Error: " + (reason.message || reason.name);
+      const error = reason.message || reason.name
+      this.textElement.textContent = "Error: " + error;
+      this.dispatchEvent(new CustomEvent('got-stream', { detail: { error }, bubbles: true }));
     }
 
     this.enumerateDevices().catch(reason => {
