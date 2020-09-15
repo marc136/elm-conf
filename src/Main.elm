@@ -194,7 +194,7 @@ viewInitialMediaSelection { localStream } =
 cameraSelect : Html Msg
 cameraSelect =
     node "camera-select"
-        [ onCustomEvent "got-stream" GotLocalStream gotStreamDecoder ]
+        [ onCustomEvent "got-stream" GotLocalStream getUserMediaResult ]
         []
 
 
@@ -208,10 +208,10 @@ detailDecoder decoder =
     Json.field "detail" decoder
 
 
-gotStreamDecoder : Json.Decoder LocalStream
-gotStreamDecoder =
+getUserMediaResult : Json.Decoder LocalStream
+getUserMediaResult =
     Json.oneOf
-        [ Json.map LocalStream (Json.field "stream" Json.value)
+        [ Json.map LocalStream <| Json.field "stream" Json.value
         , Json.map Failed <| Json.field "error" Json.string
         ]
 
