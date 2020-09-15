@@ -44,16 +44,20 @@ type alias InitialMediaSelectionData =
     }
 
 
+type LocalStream
+    = NotRequested
+    | LocalStream Stream
+    | Failed String
+
+
+type alias Stream =
+    Json.Value
+
+
 type alias JoiningRoomData =
     { room : RoomId
     , localStream : Stream
     }
-
-
-type LocalStream
-    = NotRequested
-    | LocalStream Stream
-    | Failed
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -209,10 +213,6 @@ viewJoiningRoom { localStream } =
       , ( "abort", btn [ onClick AbortJoining ] [ text "Abort" ] )
       ]
     )
-
-
-type alias Stream =
-    Json.Value
 
 
 onGotStream : Attribute Msg
