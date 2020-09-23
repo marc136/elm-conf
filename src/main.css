@@ -14,6 +14,7 @@
   --primary-light: hsl(210, 33%, 40%);
   --highlight: white;
   --background: hsl(210, 33%, 70%);
+  --red: hsl(349, 92%, 37%);
   --video-ratio: 1.3333333;
 }
 
@@ -263,13 +264,18 @@ button.circle:focus {
   stroke: white;
 }
 
+.conf webrtc-media.failed {
+  background-color: var(--red);
+}
+
 .conf webrtc-media[view="initial"] video {
   /* will not emit "playing" event in Chrome */
   /* display: none; */
   top: calc(var(--box-height) + 10px);
 }
 
-.conf webrtc-media[view="playing"] .connecting-animation {
+.conf webrtc-media[view="playing"] .connecting-animation,
+.conf webrtc-media.failed .connecting-animation {
   top: calc(var(--box-height) + 10px);
   animation: none;
 }

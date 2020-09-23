@@ -100,6 +100,18 @@ export default class WebRtcMedia extends HTMLElement {
       this._playTrack(track);
     };
     this._emitEvent('new-peer-connection', pc);
+
+    pc.onconnectionstatechange = () => {
+      console.log(`dev user-${this.id} onconnectionstatechange`, pc.connectionState);
+      switch (pc.connectionState) {
+        case 'failed':
+          this._emitEvent('connection-failed');
+          this.classList.add('failed');
+          break;
+        default:
+          this.classList.remove('failed');
+      }
+    };
   }
 
   /**
