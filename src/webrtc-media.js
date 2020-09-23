@@ -164,17 +164,19 @@ customElements.define('webrtc-media', WebRtcMedia);
  */
 async function peerConnectionInfo(webrtc, info) {
   try {
+    let timeout = 1000;
     if (webrtc.pc) {
       if (webrtc.pc.connectionState !== 'connected') {
         // It would be better to listen to the individual events instead
         // https://www.w3.org/TR/2019/CR-webrtc-20191213/#event-summary
         stats.init(webrtc.pc, info);
+        timeout = 100;
       } else {
         // return stats.fullReport(webrtc.pc, el);
         await stats.connected(webrtc.pc, webrtc.stats, info);
       }
     }
-    setTimeout(() => { peerConnectionInfo(webrtc, info); }, 1000);
+    setTimeout(() => { peerConnectionInfo(webrtc, info); }, timeout);
   } catch (ex) {
     console.error('peerConnectionInfo failed', ex)
     info.textContent = 'failed to get stats'
